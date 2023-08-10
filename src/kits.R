@@ -6,27 +6,30 @@ library(tidyr)
 # escolhe diretrório de saída
 output <- selectDirectory(caption = "diretório de saída:", label = "Select", path = "./data/")
 
-# arquivos de base no servidor (hardcoded)
-municipios_gpkg <- "W:/DGC_ACERVO_CGEO/PROJETOS_EM_ANDAMENTO/Cemaden/DESENVOLVIMENTO/_GPKG/BASES/MUNICIPIOS.gpkg"
-AR_gpkg <- "W:/DGC_ACERVO_CGEO/PROJETOS_EM_ANDAMENTO/Cemaden/DESENVOLVIMENTO/_GPKG/BASES/AreasDeRisco.gpkg"
-faces_gpkg <- "W:/DGC_ACERVO_CGEO/PROJETOS_EM_ANDAMENTO/Cemaden/DESENVOLVIMENTO/_GPKG/BASES/Faces.gpkg"
-tabfaces_gpkg <- "W:/DGC_ACERVO_CGEO/PROJETOS_EM_ANDAMENTO/Cemaden/DESENVOLVIMENTO/_GPKG/BASES/Faces_CNEFE.gpkg"
-setores_gpkg <- "W:/DGC_ACERVO_CGEO/PROJETOS_EM_ANDAMENTO/Cemaden/DESENVOLVIMENTO/_GPKG/BASES/Setores.gpkg"
-BATER_gpkg <- "W:/DGC_ACERVO_CGEO/PROJETOS_EM_ANDAMENTO/Cemaden/DESENVOLVIMENTO/_GPKG/PRODUTOS/BATER.gpkg"
+# seleciona o arquivo geopackage com a base áreas de risco
+AR_gpkg <- selectFile(caption = "selecionar arquivo de áreas de risco:", label = "Select")
+
+# seleciona o arquivo geopackage com a base de faces com variáveis de mapeamento
+tabfaces_gpkg <- selectFile(caption = "selecionar arquivo de variáveis de faces:", label = "Select")
+
+# seleciona o arquivo geopackage com a base de setores censitários
+setores_gpkg <- selectFile(caption = "selecionar arquivo de setores:", label = "Select")
+
+# seleciona o arquivo geopackage com a base de faces com geometria
+faces_gpkg <- selectFile(caption = "selecionar arquivo de base de faces:", label = "Select")
+
 
 # cria lista de camadas para cada arquivo de base
 lotes <- st_layers(AR_gpkg)
 setores_ver <- st_layers(setores_gpkg)
 faces_ver <- st_layers(faces_gpkg)
 tabfaces_ver <- st_layers(tabfaces_gpkg)
-# municipios_ver <- st_layers(municipios_gpkg)
 
 # seleciona a camada para cada arquivo de base
 lote_layer <- select.list(lotes[[1]], title = "áreas de risco:", graphics = TRUE)
 faces_layer <- select.list(faces_ver[[1]], title = "base de faces:", graphics = TRUE)
 tabfaces_layer <- select.list(tabfaces_ver[[1]], title = "dados de faces:", graphics = TRUE)
 setor_layer <- select.list(setores_ver[[1]], title = "base de setores:", graphics = TRUE)
-# municipios_layer <- select.list(municipios_ver[[1]], title = "base de municipios:", graphics = TRUE)
 
 # cria lista de colunas e seleciona a de interesse para cada camada base
 
@@ -77,7 +80,7 @@ for (i in 1:length(lista_mun)) {
   # carrega os setores do município
   setores <- read_sf(setores_gpkg, query = paste("SELECT * FROM ", setor_layer, " WHERE substr(", cod_set, ", 1, 7) = '", lista_mun[i], "'", sep = ""))
   #
-  # tem que carregar as variáveis de mapeamento no setores 
+  # tem que carregar as variáveis de mapeamento nos setores 
   #
   
   # carrega as faces com geometria do município
@@ -91,19 +94,14 @@ for (i in 1:length(lista_mun)) {
   
   # preenche a lista de avaliação com os dados do município - faces associadas e não associadas
   aval_quali[[i]] <- data.frame(
-    
     # código do município
     municipio = lista_mun[i],
-    
     # áreas de risco
     areas_de_risco = nrow(areas_risco),
-    
     # faces com geometria e variáveis
     faces_com_dado = faces |> drop_na(cod_face, cod_tabface) |> nrow(),
-    
     # faces sem variáveis
     faces_sem_dado = sum(is.na(faces[cod_tabface])),
-    
     #faces sem geometria
     faces_sem_geo = sum(is.na(faces[cod_face])))
   
@@ -138,6 +136,6 @@ tempo <- fim - inicio
 aval_quali <- bind_rows(aval_quali)
 
 # exporta a tabela de avaliação
-write_sf(aval_quali, dsn = paste(output, "/", "avaliacao.xlsx", sep = ""))
+write_sf(aval_quali, dsn = paste(output, "/", "avaliacao.ods", sep = ""))
 
 
