@@ -97,7 +97,7 @@ for (i in 1:length(lista_mun)) {
     # código do município
     municipio = lista_mun[i],
     # áreas de risco
-    areas_de_risco = nrow(areas_risco),
+    areas_de_risco = areas_risco |> nrow(),
     # faces com geometria e variáveis
     faces_com_dado = faces |> drop_na(cod_face, cod_tabface) |> nrow(),
     # faces sem variáveis
@@ -137,5 +137,4 @@ aval_quali <- bind_rows(aval_quali)
 
 # exporta a tabela de avaliação
 write_sf(aval_quali, dsn = paste(output, "/", "avaliacao.ods", sep = ""))
-
 
