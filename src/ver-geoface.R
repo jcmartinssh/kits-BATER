@@ -5,8 +5,8 @@ library(tidyr)
 library(data.table)
 
 filtrogpkg <- matrix(c("Geopackage", "*.gpkg", "All files", "*"),
-  2, 2,
-  byrow = TRUE
+                     2, 2,
+                     byrow = TRUE
 )
 
 # escolhe diretrório de saída
@@ -18,26 +18,38 @@ faces_gpkg <- tcltk::tk_choose.files(
   multi = FALSE,
   filters = filtrogpkg
 )
-  # cria lista de camadas para cada arquivo de base
+
+setores_gpkg <- tcltk::tk_choose.files(
+  caption = "arquivo dos setores censitarios:",
+  multi = FALSE,
+  filters = filtrogpkg
+)
+
+# cria lista de camadas para cada arquivo de base
 faces_ver <- st_layers(faces_gpkg)
+setores_ver <- st_layers(setores_gpkg)
 
 # seleciona a camada para cada arquivo de base
 faces_layer <- select.list(faces_ver[[1]], title = "base de faces:", graphics = TRUE)
+setores_layer <- select.list(setores_ver[[1]], title = "base de setores:", graphics = TRUE)
 
 # testando as relações "one-to-many" nas faces com suas variáveis
 
-
 faces <- read_sf(faces_gpkg,
-  layer = faces_layer
+                 layer = faces_layer
 )
-
-st_geometry(faces) <- NULL
 
 setDT(faces)
 
 setkey(faces, CD_GEO)
 
-faces_salvaveis <- (
+faces_geom <- faces[, .(ID, geom)]
+
+st_geometry(faces) <- NULL
+
+faces[, CONT := .N, by = CD_GEO]
+
+faces_integra <- (
   faces
   [nchar(CD_GEO) == 21 | (nchar(CD_QUADRA) == 3 & nchar(CD_FACE) == 3)]
   [nchar(CD_GEO) == 21 & !(substr(CD_GEO, 19, 19) == " " | (substr(CD_GEO, 16, 16) == " " & substr(CD_GEO, 20, 20) == " "))]
@@ -49,18 +61,58 @@ faces_salvaveis <- (
   [!(CD_FACE == "999" | CD_FACE == "888" | CD_FACE == "777")]
 )
 
+
 faces_perf <- (
-  faces_salvaveis
+  faces_integra
   [CD_GEO == paste(CD_SETOR, CD_QUADRA, CD_FACE, sep = "")]
+  [CONT == 1]
 )
 
-faces_perf_uq <- unique(faces_perf)
+faces_dp <- fsetdiff(faces_integra, faces_perf, all = TRUE)
 
-faces_perf_dp <- fsetdiff(faces_perf, faces_perf_uq, all = TRUE)
+gc()
 
-faces_naosalvaveis <- fsetdiff(faces, faces_salvaveis, all = TRUE)
+faces_problema <- fsetdiff(faces, faces_integra, all = TRUE)
 
-faces_uq <- unique(faces_salvaveis, by = "CD_GEO")
+rm(faces)
+rm(faces_integra)
+gc()
 
-faces_dp <- fsetdiff(faces_salvaveis, faces_uq, all = TRUE)
+faces_georec <- (
+  faces_problema
+  [is.na(CD_SETOR) & (nchar(CD_QUADRA) == 3 & nchar(CD_FACE) == 3)]
+  [!(CD_QUADRA %in% c("\n00", "000", "888", "999") | CD_FACE %in% c("\n00", "000", "888", "999"))]
+)
+
+faces_irrec <- fsetdiff(faces_problema, faces_georec, all = TRUE)
+
+rm(faces_problema)
+gc()
+
+setores <- read_sf(setores_gpkg,
+                   layer = setores_layer)
+
+# setDF(faces_georec)
+
+faces_georec[faces_geom, on = "ID", CD_SETOR := CD_GEOCODI]
+
+faces_georec <- st_join(faces_georec,
+                        setores, 
+                        join = st_intersects,
+                        left = TRUE, 
+                        largest = TRUE)
+
+st_geometry(faces_georec) <- NULL
+
+# setDT(faces_georec)
+
+faces_irrec[, status := "invalidas"]
+faces_georec[, status := "recuperadas"]
+faces_dp[, status := "duplicadas"]
+faces_perf[, status := "perfeitas"]
+
+faces_aval <- rbindlist(list(faces_irrec, faces_georec, faces_dp, faces_perf))
+
+rm(list = list(faces_irrec, faces_georec, faces_dp, faces_perf))
+gc()
 
