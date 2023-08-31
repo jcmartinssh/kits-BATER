@@ -33,19 +33,19 @@ setores_ver <- st_layers(setores_gpkg)
 faces_layer <- select.list(faces_ver[[1]], title = "base de faces:", graphics = TRUE)
 setores_layer <- select.list(setores_ver[[1]], title = "base de setores:", graphics = TRUE)
 
+faces_col_sql <- read_sf(faces_gpkg, query = paste("SELECT * from ", faces_layer, " LIMIT 0", sep = "")) |>
+  colnames()
+
+faces_col_sql <- faces_col_sql[! faces_col_sql == "geom"] |> paste(collapse = ", ")
+  
+
 # testando as relações "one-to-many" nas faces com suas variáveis
 
-faces <- read_sf(faces_gpkg,
-                 layer = faces_layer
-)
+faces <- read_sf(faces_gpkg, query = paste("SELECT ", faces_col_sql, " FROM ", faces_layer))
 
 setDT(faces)
 
 setkey(faces, CD_GEO)
-
-faces_geom <- faces[, .(ID, geom)]
-
-st_geometry(faces) <- NULL
 
 faces[, CONT := .N, by = CD_GEO]
 
@@ -70,8 +70,6 @@ faces_perf <- (
 
 faces_dp <- fsetdiff(faces_integra, faces_perf, all = TRUE)
 
-gc()
-
 faces_problema <- fsetdiff(faces, faces_integra, all = TRUE)
 
 rm(faces)
@@ -81,20 +79,38 @@ gc()
 faces_georec <- (
   faces_problema
   [is.na(CD_SETOR) & (nchar(CD_QUADRA) == 3 & nchar(CD_FACE) == 3)]
-  [!(CD_QUADRA %in% c("\n00", "000", "888", "999") | CD_FACE %in% c("\n00", "000", "888", "999"))]
+  [!(CD_QUADRA %in% c("\n00", "000", "777", "888", "999") | CD_FACE %in% c("\n00", "000", "777", "888", "999"))]
 )
+
+id_geom <- faces_georec$ID |> paste(collapse = ", ")
 
 faces_irrec <- fsetdiff(faces_problema, faces_georec, all = TRUE)
 
 rm(faces_problema)
 gc()
 
+faces_geom <- read_sf(faces_gpkg,
+                      query = paste("SELECT ID, geom FROM ", faces_layer, " WHERE ID IN (", id_geom, ")")) |> setDT()
+
+faces_georec[faces_geom, on = "ID", geom := geom]
+
+rm(faces_geom)
+gc()
+
 setores <- read_sf(setores_gpkg,
-                   layer = setores_layer)
+                   query = paste("SELECT CD_GEOCODI, geom FROM ", setores_layer))
 
-# setDF(faces_georec)
+faces_georec <- st_as_sf(faces_georec)
 
-faces_georec[faces_geom, on = "ID", CD_SETOR := CD_GEOCODI]
+# rm(faces_dp)
+# rm(faces_perf)
+# rm(faces_irrec)
+# gc()
+
+setores <- st_make_valid(setores)
+faces_georec <- st_make_valid(faces_georec)
+
+setores <- st_filter(setores, faces_georec)
 
 faces_georec <- st_join(faces_georec,
                         setores, 
@@ -103,11 +119,15 @@ faces_georec <- st_join(faces_georec,
                         largest = TRUE)
 
 st_geometry(faces_georec) <- NULL
+setDT(faces_georec)
+rm(setores)
+gc()
 
-# setDT(faces_georec)
+faces_georec[, ':=' (CD_SETOR = CD_GEOCODI,
+                     CD_GEO = paste(CD_SETOR, CD_QUADRA, CD_FACE, sep = ""),
+                     status = "recuperadas")]
 
 faces_irrec[, status := "invalidas"]
-faces_georec[, status := "recuperadas"]
 faces_dp[, status := "duplicadas"]
 faces_perf[, status := "perfeitas"]
 
@@ -115,4 +135,13 @@ faces_aval <- rbindlist(list(faces_irrec, faces_georec, faces_dp, faces_perf))
 
 rm(list = list(faces_irrec, faces_georec, faces_dp, faces_perf))
 gc()
+
+(
+  faces_aval
+  [, CONT := .N, by = CD_GEO]
+  [status %in% c("perfeitas", "recuperadas") & CONT > 1, status := "duplicadas"]
+  [, .(ID, CD_GEO, CD_SETOR, CD_QUADRA, CD_FACE, CONT, status)]
+)
+
+st_write(faces_aval, paste(output, "/", "faces_geo_aval.ods", append = FALSE))
 
