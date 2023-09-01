@@ -3,6 +3,7 @@ library(sf)
 # library(dplyr)
 library(tidyr)
 library(data.table)
+library(arrow)
 
 filtrogpkg <- matrix(c("Geopackage", "*.gpkg", "All files", "*"),
                      2, 2,
@@ -19,19 +20,11 @@ faces_gpkg <- tcltk::tk_choose.files(
   filters = filtrogpkg
 )
 
-setores_gpkg <- tcltk::tk_choose.files(
-  caption = "arquivo dos setores censitarios:",
-  multi = FALSE,
-  filters = filtrogpkg
-)
-
 # cria lista de camadas para cada arquivo de base
 faces_ver <- st_layers(faces_gpkg)
-setores_ver <- st_layers(setores_gpkg)
 
 # seleciona a camada para cada arquivo de base
 faces_layer <- select.list(faces_ver[[1]], title = "base de faces:", graphics = TRUE)
-setores_layer <- select.list(setores_ver[[1]], title = "base de setores:", graphics = TRUE)
 
 faces_col_sql <- read_sf(faces_gpkg, query = paste("SELECT * from ", faces_layer, " LIMIT 0", sep = "")) |>
   colnames()
@@ -82,66 +75,21 @@ faces_georec <- (
   [!(CD_QUADRA %in% c("\n00", "000", "777", "888", "999") | CD_FACE %in% c("\n00", "000", "777", "888", "999"))]
 )
 
-id_geom <- faces_georec$ID |> paste(collapse = ", ")
-
 faces_irrec <- fsetdiff(faces_problema, faces_georec, all = TRUE)
 
 rm(faces_problema)
 gc()
 
-faces_geom <- read_sf(faces_gpkg,
-                      query = paste("SELECT ID, geom FROM ", faces_layer, " WHERE ID IN (", id_geom, ")")) |> setDT()
-
-faces_georec[faces_geom, on = "ID", geom := geom]
-
-rm(faces_geom)
-gc()
-
-setores <- read_sf(setores_gpkg,
-                   query = paste("SELECT CD_GEOCODI, geom FROM ", setores_layer))
-
-faces_georec <- st_as_sf(faces_georec)
-
-# rm(faces_dp)
-# rm(faces_perf)
-# rm(faces_irrec)
-# gc()
-
-setores <- st_make_valid(setores)
-faces_georec <- st_make_valid(faces_georec)
-
-setores <- st_filter(setores, faces_georec)
-
-faces_georec <- st_join(faces_georec,
-                        setores, 
-                        join = st_intersects,
-                        left = TRUE, 
-                        largest = TRUE)
-
-st_geometry(faces_georec) <- NULL
-setDT(faces_georec)
-rm(setores)
-gc()
-
-faces_georec[, ':=' (CD_SETOR = CD_GEOCODI,
-                     CD_GEO = paste(CD_SETOR, CD_QUADRA, CD_FACE, sep = ""),
-                     status = "recuperadas")]
-
+faces_georec[, status := "recuperadas"]
 faces_irrec[, status := "invalidas"]
 faces_dp[, status := "duplicadas"]
 faces_perf[, status := "perfeitas"]
 
 faces_aval <- rbindlist(list(faces_irrec, faces_georec, faces_dp, faces_perf))
 
-rm(list = list(faces_irrec, faces_georec, faces_dp, faces_perf))
+rm(faces_irrec, faces_georec, faces_dp, faces_perf)
 gc()
 
-(
-  faces_aval
-  [, CONT := .N, by = CD_GEO]
-  [status %in% c("perfeitas", "recuperadas") & CONT > 1, status := "duplicadas"]
-  [, .(ID, CD_GEO, CD_SETOR, CD_QUADRA, CD_FACE, CONT, status)]
-)
-
-st_write(faces_aval, paste(output, "/", "faces_geo_aval.ods", append = FALSE))
+write_parquet(faces_aval, sink = paste(output, "/", "faces_geo_aval.parquet", sep = ""))
+# st_write(faces_aval, paste(output, "/", "faces_geo_aval.ods", sep = ""), append = FALSE)
 
