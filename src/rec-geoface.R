@@ -51,10 +51,16 @@ faces_aval <- read_parquet(faces_parquet)
 
 faces_georec <- faces_aval[status == "recuperadas"]
 
-id_geom <- faces_georec$ID |> paste(collapse = ", ")
+faces_col <- colnames(faces_georec)
+
+rm(faces_aval)
+gc()
+
+id_geom <- faces_georec$ID
+id_geom_sql <- id_geom |> paste(collapse = ", ")
 
 faces_geom <- read_sf(faces_gpkg,
-                      query = paste("SELECT ID, geom FROM ", faces_layer, " WHERE ID IN (", id_geom, ")")) |> setDT()
+                      query = paste("SELECT ID, geom FROM ", faces_layer, " WHERE ID IN (", id_geom_sql, ")")) |> setDT()
 
 faces_georec[faces_geom, on = "ID", geom := geom]
 
@@ -63,12 +69,34 @@ gc()
 
 faces_georec <- faces_georec |> st_as_sf() |> st_make_valid()
 
-setores <- read_sf(setores_gpkg,
+
+setores_censitarios <- read_sf(setores_gpkg,
                    query = paste("SELECT CD_GEOCODI, geom FROM ", setores_layer)) |> 
   st_make_valid() |>
   st_filter(faces_georec)
 
 gc()
+
+faces_rec <- list()
+
+### loop por face
+
+id_geom <- id_geom[1]
+
+t0 <- Sys.time()
+
+for (i in 1:length(id_geom)) {
+  face <- faces_georec[faces_georec$ID == id_geom[i]]
+  # setores <- st_filter(setores_censitarios, face)
+  face <- st_join(face, setores, join = st_intersects, left = TRUE, largest = TRUE)
+  st_geometry(face) <- NULL
+  setDT(face)
+  face[, ':=' (CD_SETOR = CD_GEOCODI, CD_GEO = paste(CD_SETOR, CD_QUADRA, CD_FACE, sep = ""))]
+  faces_rec[[i]] <- face[, .(faces_col)]
+}
+
+t1 <- Sys.time()
+tempo <- t1 - t0
 
 faces_georec <- st_join(faces_georec,
                         setores, 
