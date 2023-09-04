@@ -1,5 +1,5 @@
 ### separando a parte de associacao espacial com setor censitario para recuperacao do geocodigo das faces
-
+library(qgisprocess)
 library(arrow)
 library(sf)
 # library(rstudioapi)
