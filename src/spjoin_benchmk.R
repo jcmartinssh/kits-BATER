@@ -57,7 +57,8 @@ id_geom <- faces_georec$ID
 id_geom_sql <- id_geom |> paste(collapse = ", ")
 
 faces_geom <- read_sf(faces_gpkg,
-                      query = paste("SELECT ID, geom FROM ", faces_layer, " WHERE ID IN (", id_geom_sql, ")")) |> setDT()
+                      query = paste("SELECT ID, geom FROM ", 
+                      faces_layer, " WHERE ID IN (", id_geom_sql, ")")) |> setDT()
 
 faces_georec[faces_geom, on = "ID", geom := geom]
 
@@ -77,7 +78,7 @@ gc()
 faces_rec <- list()
 
 id_face_teste <- id_geom[runif(1, min = 1, max = 45509)]
-lista_faces_ID <- id_geom[runif(10, min = 1, max = 45509)]
+lista_faces_ID <- id_geom[runif(5, min = 1, max = 45509)]
 
 face <- faces_georec[faces_georec$ID == id_face_teste, ]
 setores <- st_filter(setores_censitarios, face)
@@ -85,48 +86,39 @@ setores <- st_filter(setores_censitarios, face)
 benchmk <- microbenchmark(
   sf_filter <- st_filter(setores_censitarios, face),
   sf_filter2 <- setores_censitarios[face, op = st_intersects],
-  sf_join1 <- st_join(face, setores, join  = st_intersects, left = TRUE, largest = TRUE)
-  # times = 5
+  sf_join1 <- st_join(face, setores, join  = st_intersects, left = TRUE, largest = TRUE),
+  times = 5
 )
 
 benchmk
 
-func_map_sf <- function (lista_faces, base_setor) {
-  face <- faces_georec[faces_georec$ID == lista_faces_ID, ]
+
+
+func_map_sf <- function (id_face, face_geo = faces_georec, base_setor = setores_censitarios) {
+  face <- face_geo[face_geo$ID == id_face, ]
   setor <- base_setor[face, op = st_intersects]
-  face <- st_join(face, setores, join  = st_intersects, left = TRUE, largest = TRUE)
+  face <- st_join(face, setor, join  = st_intersects, left = TRUE, largest = TRUE)
   st_geometry(face) <- NULL
   return(face)
 }
 
+# teste <- map(lista_faces_ID, func_map_sf) |> rbindlist()
+
 lista_for_teste <- list()
 
-func_for_sf <- function (lista_faces_ID, base_setor) {
-  for (i in seq_along(lista_faces_ID)) {
-    face <- faces_georec[faces_georec$ID == list_face_teste[i], ]
+func_for_sf <- function (lista_faces, face_geo = faces_georec, base_setor = setores_censitarios) {
+  for (i in seq_along(lista_faces)) {
+    face <- face_geo[face_geo$ID == lista_faces[i], ]
     setor <- base_setor[face, op = st_intersects]
-    face <- st_join(face, setores, join  = st_intersects, left = TRUE, largest = TRUE)
+    face <- st_join(face, setor, join  = st_intersects, left = TRUE, largest = TRUE)
     st_geometry(face) <- NULL
     lista_for_teste[[i]] <- face
   }
 }
 
-teste <- map(lista_faces_ID, func_map_sf, base_setor = setores_censitarios) |> rbindlist()
+# teste <- func_for_sf(lista_faces = lista_faces_ID)
 
-
-id_face_teste <- id_geom[runif(1, min = 1, max = 45509)]
-face <- faces_georec[faces_georec$ID == id_face_teste, ]
-setor <- setores_censitarios[face, op = st_intersects]
-face <- st_join(face, setor, join  = st_intersects, left = TRUE, largest = TRUE)
-face$CD_GEOCODI
-ggplot() +
-  geom_sf(data = setor, color = "yellow") +
-  geom_sf(data = face, color = "red")
-
-
-
-
-
-list_benchmk <- microbenchmark(
-  func_map = map(lista_faces_ID, func_map_sf, base_setor = )
-)
+# list_benchmk <- microbenchmark(
+#   func_map = map(lista_faces_ID, func_map_sf) |> rbindlist(),
+#   func_for = 
+# )
