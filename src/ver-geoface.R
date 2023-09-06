@@ -1,7 +1,5 @@
 library(sf)
-# library(rstudioapi)
-# library(dplyr)
-library(tidyr)
+# library(tidyr)
 library(data.table)
 library(arrow)
 library(parallel)
@@ -91,10 +89,10 @@ faces_irrec <- fsetdiff(faces_problema, faces_georec, all = TRUE)
 rm(faces_problema)
 gc()
 
-faces_georec[, status := "recuperaveis"]
-faces_irrec[, status := "invalidas"]
-faces_dp[, status := "duplicadas"]
-faces_perf[, status := "perfeitas"]
+faces_georec[, status_geo := "recuperaveis"]
+faces_irrec[, status_geo := "invalidas"]
+faces_dp[, status_geo := "duplicadas"]
+faces_perf[, status_geo := "perfeitas"]
 
 id_geom <- faces_georec[, ID]
 id_geom_sql <- id_geom |> paste(collapse = ", ")
@@ -139,7 +137,7 @@ clusterEvalQ(cl_proc, {
 })
 
 # aplica a funcao de geoprocessamento de maneira paralelizada para construir a base de calculo dos coeficientes
-faces_georec <- parLapply(cl = cl_proc, id_geom, func_map_sf) |> rbindlist()
+faces_georec <- parLapply(cl = cl_proc, X = id_geom, fun = func_map_sf) |> rbindlist()
 
 # finaliza o cluster
 stopCluster(cl_proc)
@@ -147,9 +145,36 @@ stopCluster(cl_proc)
 fim <- Sys.time()
 tempo <- fim - inicio
 
-# # consolida a lista em uma tabela de base de calculo dos coeficientes
-# tabela_calc_coef <- rbindlist(lista_calc_coef, fill = TRUE)
+## verirficacao das falhas de associacao com geocodigo do setor - foram duas, problemas na geometria das faces - irrecuperavel
+# faces_geoorec_falha_SQL <- faces_georec[is.na(CD_GEOCODI), ID] |> paste(collapse = ", ")
+# 
+# faces_geoorec_falha <- read_sf(faces_gpkg,
+#                       query = paste("SELECT * FROM ",
+#                                     faces_layer, " WHERE ID IN (", faces_geoorec_falha_SQL, ")"))
+# 
+# falha_setores <- setores_censitarios[faces_geoorec_falha, op = st_intersects]
 
-# write_parquet(faces_aval, sink = paste(output, "/", "faces_geo_aval.parquet", sep = ""))
-# # st_write(faces_aval, paste(output, "/", "faces_geo_aval.ods", sep = ""), append = FALSE)
+faces_georec[is.na(CD_GEOCODI), status_geo := "invalidas"]
+
+faces_georec[status_geo == "recuperaveis", ':=' (CD_SETOR = CD_GEOCODI, CD_GEO = paste(CD_SETOR, CD_QUADRA, CD_FACE, sep = ""))]
+
+setkey(faces_georec, CD_GEO)
+
+faces_georec[, CONT := .N, by = CD_GEO]
+
+facesGeocod_ex <- c(faces_perf$CD_GEO, unique(faces_dp$CD_GEO))
+
+(
+  faces_georec
+  [status_geo == "recuperaveis" & (CONT > 1 | CD_GEO %in% FacesGeocod_ex), status_geo := "duplicadas"]
+  [status_geo == "recuperaveis", status_geo := "recuperadas"]
+  [, CD_GEOCODI := NULL]
+)
+
+faces_geo_aval <- rbindlist(list(faces_georec, faces_irrec, faces_dp, faces_perf))
+
+rm(faces_georec, faces_irrec, faces_dp, faces_perf)
+gc()
+
+write_parquet(faces_geo_aval, sink = paste(output, "/", "faces_geo_aval.parquet", sep = ""))
 
