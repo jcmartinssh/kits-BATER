@@ -6,6 +6,7 @@ library(data.table)
 library(arrow)
 library(parallel)
 
+inicio <- Sys.time()
 
 filtro_gpkg <- matrix(c("Geopackage", "*.gpkg", "All files", "*"),
                       2, 2,
@@ -116,7 +117,7 @@ setores_censitarios <- read_sf(setores_gpkg,
 
 gc()
 
-func_map_sf <- function(id_face, face_geo, base_setor) {
+func_map_sf <- function(id_face, face_geo = faces_georec, base_setor = setores_censitarios) {
   face <- face_geo[face_geo$ID == id_face, ]
   setor <- base_setor[face, op = st_intersects]
   face <- st_join(face, setor, join  = st_intersects, left = TRUE, largest = TRUE)
@@ -130,7 +131,6 @@ num_cores <- detectCores()
 cl_proc <- makeCluster(num_cores)
 
 # exporta as variaveis para os clusters
-# clusterExport(cl_proc, c("pr_albers_br", "lmun", "grd_gpkg", "base_gpkg", "grd_layer", "grd_vars", "grd_id", "crs", "lista_mun_map"))
 clusterExport(cl_proc, c("id_geom", "func_map_sf", "faces_georec", "setores_censitarios"))
 
 # carrega as bibliotecas utilizadas no cluster
@@ -143,6 +143,9 @@ faces_georec <- parLapply(cl = cl_proc, id_geom, func_map_sf) |> rbindlist()
 
 # finaliza o cluster
 stopCluster(cl_proc)
+
+fim <- Sys.time()
+tempo <- fim - inicio
 
 # # consolida a lista em uma tabela de base de calculo dos coeficientes
 # tabela_calc_coef <- rbindlist(lista_calc_coef, fill = TRUE)
