@@ -1,11 +1,11 @@
 
-library(qgisprocess)
 library(arrow)
 library(sf)
 library(data.table)
 library(microbenchmark)
 library(purrr)
 library(ggplot2)
+library(parallel)
 
 filtro_gpkg <- matrix(c("Geopackage", "*.gpkg", "All files", "*"),
                       2, 2,
@@ -67,7 +67,6 @@ gc()
 
 faces_georec <- faces_georec |> st_as_sf() |> st_make_valid()
 
-
 setores_censitarios <- read_sf(setores_gpkg,
                                query = paste("SELECT CD_GEOCODI, geom FROM ", setores_layer)) |> 
   st_make_valid() |>
@@ -75,24 +74,7 @@ setores_censitarios <- read_sf(setores_gpkg,
 
 gc()
 
-faces_rec <- list()
-
-id_face_teste <- id_geom[runif(1, min = 1, max = 45509)]
-lista_faces_ID <- id_geom[runif(5, min = 1, max = 45509)]
-
-face <- faces_georec[faces_georec$ID == id_face_teste, ]
-setores <- st_filter(setores_censitarios, face)
-
-benchmk <- microbenchmark(
-  sf_filter <- st_filter(setores_censitarios, face),
-  sf_filter2 <- setores_censitarios[face, op = st_intersects],
-  sf_join1 <- st_join(face, setores, join  = st_intersects, left = TRUE, largest = TRUE),
-  times = 5
-)
-
-benchmk
-
-
+lista_faces_ID <- id_geom[runif(15, min = 1, max = 45509)]
 
 func_map_sf <- function (id_face, face_geo = faces_georec, base_setor = setores_censitarios) {
   face <- face_geo[face_geo$ID == id_face, ]
@@ -102,23 +84,37 @@ func_map_sf <- function (id_face, face_geo = faces_georec, base_setor = setores_
   return(face)
 }
 
-# teste <- map(lista_faces_ID, func_map_sf) |> rbindlist()
-
-lista_for_teste <- list()
-
 func_for_sf <- function (lista_faces, face_geo = faces_georec, base_setor = setores_censitarios) {
+  lista_teste <- list()
   for (i in seq_along(lista_faces)) {
     face <- face_geo[face_geo$ID == lista_faces[i], ]
     setor <- base_setor[face, op = st_intersects]
     face <- st_join(face, setor, join  = st_intersects, left = TRUE, largest = TRUE)
     st_geometry(face) <- NULL
-    lista_for_teste[[i]] <- face
+    lista_teste[[i]] <- face
   }
+  rbindlist(lista_teste)
 }
 
-# teste <- func_for_sf(lista_faces = lista_faces_ID)
+num_cores <- detectCores()
 
-# list_benchmk <- microbenchmark(
-#   func_map = map(lista_faces_ID, func_map_sf) |> rbindlist(),
-#   func_for = 
-# )
+cl_proc <- makeCluster(num_cores)
+
+clusterExport(cl_proc, c("lista_faces_ID", "func_map_sf", "faces_georec", "setores_censitarios"))
+
+clusterEvalQ(cl_proc, {
+  library(sf)
+})
+
+# teste <- lapply(lista_faces_ID, func_map_sf) |> rbindlist()
+# teste2 <- map(lista_faces_ID, func_map_sf) |> rbindlist()
+
+list_benchmk <- microbenchmark(
+  func_map = map(lista_faces_ID, func_map_sf) |> rbindlist(),
+  func_for = func_for_sf(lista_faces = lista_faces_ID),
+  func_apply = lapply(lista_faces_ID, func_map_sf) |> rbindlist(),
+  func_par = parLapply(cl = cl_proc, lista_faces_ID, func_map_sf) |> rbindlist(),
+  times = 5
+)
+
+list_benchmk
