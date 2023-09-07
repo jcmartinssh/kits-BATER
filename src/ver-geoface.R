@@ -145,7 +145,7 @@ stopCluster(cl_proc)
 fim <- Sys.time()
 tempo <- fim - inicio
 
-## verirficacao das falhas de associacao com geocodigo do setor - foram duas, problemas na geometria das faces - irrecuperavel
+## verificacao das falhas de associacao com geocodigo do setor - foram duas, problemas na geometria das faces - irrecuperavel
 # faces_geoorec_falha_SQL <- faces_georec[is.na(CD_GEOCODI), ID] |> paste(collapse = ", ")
 # 
 # faces_geoorec_falha <- read_sf(faces_gpkg,

@@ -12,7 +12,7 @@ filtro_gpkg <- matrix(c("Geopackage", "*.gpkg", "All files", "*"),
                       byrow = TRUE
 )
 
-filtro_pqt <- matrix(c("Parquet", "*.parquet", "All files", "*"),
+filtro_parquet <- matrix(c("Parquet", "*.parquet", "All files", "*"),
                      2, 2,
                      byrow = TRUE
 )
@@ -21,7 +21,7 @@ filtro_pqt <- matrix(c("Parquet", "*.parquet", "All files", "*"),
 faces_parquet <- tcltk::tk_choose.files(
   caption = "arquivo das faces com avaliação:",
   multi = FALSE,
-  filters = filtro_pqt
+  filters = filtro_parquet
 )
 
 faces_gpkg <- tcltk::tk_choose.files(
