@@ -3,6 +3,7 @@ library(arrow)
 library(data.table)
 library(stringr)
 
+# define o filtro de formato de arquivo
 filtro_parquet <- matrix(c("Parquet", "*.parquet", "All files", "*"),
                      2, 2,
                      byrow = TRUE
@@ -35,13 +36,31 @@ setnames(tabfaces, olcol, neocol)
 setkey(tabfaces, X4)
 
 ### o ideal é não separar as faces, mas classificar
+
+(# tem um erro aqui
+  tabfaces
+  [, CONT := .N, by = X4]
+  [is.na(X4), status_tab := "geocodigo nulo"]
+  [!is.na(X4) & (nchar(X4) != 21 | substr(X4, 19, 21) %in% cod_erro), status_tab := "erro geocodigo"]
+  [!is.na(X4) & status_tab != "erro geocodigo" & CONT > 1, status_tab := "geocodigo duplicado"]
+  [!is.na(X4) & nchar(X4) == 21 & !(substr(X4, 19, 21) %in% cod_erro) & CONT == 1, status_tab := "primorosa"]
+
+)
+
+tabfaces[, .N, by = status_tab]
+teste <- tabfaces[is.na(status_tab)]
+nrow(tabfaces[CONT > 1])
+
 tabfaces <- (
   tabfaces
   [!is.na(X4) & nchar(X4) == 21 & !(substr(X4, 19, 21) %in% cod_erro)]
   [V001 != 0 & V004 != 0]
 )
 
-all_dup <- tabfaces[, dup := .N > 1, by = key(tabfaces)][dup == TRUE]
+tabfaces[, uq := .N == 1, by = key(tabfaces)]
+
+tabfaces_dup <- tabfaces[uq == FALSE]
+ <- tabfaces[, uq := ]
 
 setkey(all_dup, X4, V001, V004)
 alldup_unq <- duplicated(all_dup)
