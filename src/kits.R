@@ -1,23 +1,60 @@
 library(sf)
-library(rstudioapi)
+# library(rstudioapi)
+library(arrow)
 library(dplyr)
 library(tidyr)
 
+filtro_gpkg <- matrix(c("Geopackage", "*.gpkg", "All files", "*"),
+                      2, 2,
+                      byrow = TRUE
+)
+
+filtro_parquet <- matrix(c("Parquet", "*.parquet", "All files", "*"),
+                     2, 2,
+                     byrow = TRUE
+)
+
 # escolhe diretrório de saída
-output <- selectDirectory(caption = "diretório de saída:", label = "Select", path = "./data/")
+# output <- selectDirectory(caption = "diretório de saída:", label = "Select", path = "./data/")
+output <- tcltk::tk_choose.dir(caption = "selecionar diretório de saída:")
 
 # seleciona o arquivo geopackage com a base áreas de risco
-AR_gpkg <- selectFile(caption = "selecionar arquivo de áreas de risco:", label = "Select")
+# AR_gpkg <- selectFile(caption = "selecionar arquivo de áreas de risco:", label = "Select")
+AR_gpkg <- tcltk::tk_choose.files(
+  caption = "selecionar arquivo de áreas de risco:",
+  multi = FALSE,
+  filters = filtro_gpkg
+)
 
 # seleciona o arquivo geopackage com a base de faces com variáveis de mapeamento
-tabfaces_gpkg <- selectFile(caption = "selecionar arquivo de variáveis de faces:", label = "Select")
+# tabfaces_gpkg <- selectFile(caption = "selecionar arquivo de variáveis de faces:", label = "Select")
+tabfaces_gpkg <- tcltk::tk_choose.files(
+  caption = "selecionar arquivo de variáveis de faces:",
+  multi = FALSE,
+  filters = filtro_gpkg
+)
 
 # seleciona o arquivo geopackage com a base de setores censitários
-setores_gpkg <- selectFile(caption = "selecionar arquivo de setores:", label = "Select")
+# setores_gpkg <- selectFile(caption = "selecionar arquivo de setores:", label = "Select")
+setores_gpkg <- tcltk::tk_choose.files(
+  caption = "selecionar arquivo de setores:",
+  multi = FALSE,
+  filters = filtro_gpkg
+)
 
 # seleciona o arquivo geopackage com a base de faces com geometria
-faces_gpkg <- selectFile(caption = "selecionar arquivo de base de faces:", label = "Select")
+# faces_gpkg <- selectFile(caption = "selecionar arquivo de base de faces:", label = "Select")
+faces_gpkg <- tcltk::tk_choose.files(
+  caption = "selecionar arquivo de base de faces::",
+  multi = FALSE,
+  filters = filtro_gpkg
+)
 
+faces_aval_parquet <- tcltk::tk_choose.files(
+  caption = "selecionar arquivo de avaliação das faces com geometria:",
+  multi = FALSE,
+  filters = filtro_parquet
+)
 
 # cria lista de camadas para cada arquivo de base
 lotes <- st_layers(AR_gpkg)
@@ -25,7 +62,7 @@ setores_ver <- st_layers(setores_gpkg)
 faces_ver <- st_layers(faces_gpkg)
 tabfaces_ver <- st_layers(tabfaces_gpkg)
 
-# seleciona a camada para cada arquivo de base
+# seleciona a camada para cada arquivo geopackage de base
 lote_layer <- select.list(lotes[[1]], title = "áreas de risco:", graphics = TRUE)
 faces_layer <- select.list(faces_ver[[1]], title = "base de faces:", graphics = TRUE)
 tabfaces_layer <- select.list(tabfaces_ver[[1]], title = "dados de faces:", graphics = TRUE)
@@ -49,6 +86,10 @@ cod_face <- select.list(col_face, title = "código das faces:", graphics = TRUE)
 col_tabface <- read_sf(tabfaces_gpkg,  query = paste("SELECT * from ", tabfaces_layer, " LIMIT 0", sep = "")) |> colnames()
 cod_tabface <- select.list(col_tabface, title = "código das faces", graphics = TRUE)
 
+# faces (avaliacao) - geocódigo das faces
+col_faces_aval <- open_dataset(faces_aval_parquet)$schema$names
+cod_faces_aval <-  select.list(col_faces_aval, title = "código das faces", graphics = TRUE)
+
 #
 # tem que resolver a questão dos municípios novos não presentes na base de 2010 - são só dois.
 #
@@ -65,14 +106,20 @@ lista_mun <- lista_mun[1:10]
 # lista para armazenar informações sobre a associação de dados com geometria das faces
 aval_quali <- list()
 
+# carrega o arquivo parquet de avaliacao das faces com geometria como dataset, para lazy evaluation
+faces_aval_geo <- open_dataset(faces_aval_parquet)
+
+####PAREI AQUI
+teste <- faces_aval_geo |> filter(substr(get(cod_faces_aval), 1, 7) == lista_mun[3])
+
 # anotar o tempo decorrido
 inicio <- Sys.time()
-
+i <- lista_mun[3]
 #
 ##
 ###
 #### loop de criação de kits por município
-for (i in 1:length(lista_mun)) {
+for (i in seq_along(lista_mun)) {
   
   # carrega as áreas de risco do município
   areas_risco <- read_sf(AR_gpkg, query = paste("SELECT * FROM ", lote_layer, " WHERE ", cod_AR, " = '", lista_mun[i], "'", sep = ""))
@@ -89,6 +136,10 @@ for (i in 1:length(lista_mun)) {
   # carrega a tabela de variáveis das faces do município
   tabela_faces <- read_sf(tabfaces_gpkg, query = paste("SELECT * FROM ", tabfaces_layer, " WHERE substr(", cod_tabface, ", 1, 7) = '", lista_mun[i], "'", sep = ""))
   
+  # carrega a tabela de avaliacao das faces com geometria
+  faces_aval <- faces_aval_geo |> filter(substr(cod_faces_aval, 1, 7) == lista_mun[i])
+
+
   # junta a geometria com os dados das faces - mantendo todas as feições das duas camadas
   faces <- full_join(faces_geo, tabela_faces, by = setNames(nm = cod_face, cod_tabface), keep = TRUE)
   

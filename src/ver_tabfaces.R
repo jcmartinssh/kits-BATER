@@ -21,6 +21,12 @@ tabfaces_parquet <- tcltk::tk_choose.files(
   filters = filtro_parquet
 )
 
+geofaces_parquet <- tcltk::tk_choose.files(
+  caption = "arquivo das faces com variáveis:",
+  multi = FALSE,
+  filters = filtro_parquet
+)
+
 cod_erro <- lapply(0:9, rep, 3) |> lapply(paste, collapse = "") |> unlist()
 
 tabfaces <- read_parquet(tabfaces_parquet) |> setDT()
@@ -35,38 +41,14 @@ setnames(tabfaces, olcol, neocol)
 
 setkey(tabfaces, X4)
 
-### o ideal é não separar as faces, mas classificar
+nrow(tabfaces[!is.na(X4) & nchar(X4) == 21 & !(substr(X4, 19, 21) %in% cod_erro) & CONT == 1])
 
 (# tem um erro aqui
   tabfaces
   [, CONT := .N, by = X4]
-  [is.na(X4), status_tab := "geocodigo nulo"]
-  [!is.na(X4) & (nchar(X4) != 21 | substr(X4, 19, 21) %in% cod_erro), status_tab := "erro geocodigo"]
-  [!is.na(X4) & status_tab != "erro geocodigo" & CONT > 1, status_tab := "geocodigo duplicado"]
-  [!is.na(X4) & nchar(X4) == 21 & !(substr(X4, 19, 21) %in% cod_erro) & CONT == 1, status_tab := "primorosa"]
-
+  [is.na(X4), status_tab := "geocodigo nulo"] # nenhuma face nessa condicao
+  [!is.na(X4) & (nchar(X4) != 21 | substr(X4, 19, 21) %in% cod_erro), status_tab := "erro geocodigo"] # 830540 faces nessa condicao
+  [!is.na(X4) & !(status_tab %in% c("geocodigo nulo", "erro geocodigo")) & CONT > 1, status_tab := "geocodigo duplicado"]
+  [!is.na(X4) & nchar(X4) == 21 & !(substr(X4, 19, 21) %in% cod_erro) & CONT == 1, status_tab := "perfeita"]
 )
 
-tabfaces[, .N, by = status_tab]
-teste <- tabfaces[is.na(status_tab)]
-nrow(tabfaces[CONT > 1])
-
-tabfaces <- (
-  tabfaces
-  [!is.na(X4) & nchar(X4) == 21 & !(substr(X4, 19, 21) %in% cod_erro)]
-  [V001 != 0 & V004 != 0]
-)
-
-tabfaces[, uq := .N == 1, by = key(tabfaces)]
-
-tabfaces_dup <- tabfaces[uq == FALSE]
- <- tabfaces[, uq := ]
-
-setkey(all_dup, X4, V001, V004)
-alldup_unq <- duplicated(all_dup)
-
-tabfaces_pt <- fsetdiff(tabfaces, all_dup, all = TRUE)
-
-rm(tabfaces)
-
-gc()
