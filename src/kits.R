@@ -110,7 +110,7 @@ aval_quali <- list()
 faces_aval_geo <- open_dataset(faces_aval_parquet)
 
 ####PAREI AQUI
-teste <- faces_aval_geo |> filter(substr(get(cod_faces_aval), 1, 7) == lista_mun[3])
+teste <- faces_aval_geo |> filter(substr(get(cod_faces_aval), 1, 7) == lista_mun[3]) |> select(ID, status_geo) |> collect()
 
 # anotar o tempo decorrido
 inicio <- Sys.time()
@@ -134,14 +134,28 @@ for (i in seq_along(lista_mun)) {
   faces_geo <- read_sf(faces_gpkg, query = paste("SELECT * FROM ", faces_layer, " WHERE substr(", cod_face, ", 1, 7) = '", lista_mun[i], "'", sep = ""))
   
   # carrega a tabela de variáveis das faces do município
-  tabela_faces <- read_sf(tabfaces_gpkg, query = paste("SELECT * FROM ", tabfaces_layer, " WHERE substr(", cod_tabface, ", 1, 7) = '", lista_mun[i], "'", sep = ""))
+  tabela_faces <- read_sf(tabfaces_gpkg, query = paste("SELECT * FROM ", tabfaces_layer, " WHERE substr(", cod_tabface, ", 1, 7) = '", lista_mun[i], "'", sep = "")) |> setDT()
+  olcol <- colnames(tabela_faces)[8:31]
+  neocol <- paste("V", str_pad(1:24, 3, pad = "0"), sep = "")
+  setnames(tabela_faces, olcol, neocol)
+  (
+    tabela_faces
+    [, CONT := .N, by = X4]
+    [is.na(X4), status_tab := "geocodigo nulo"] # nenhuma face nessa condicao
+    [!is.na(X4) & (nchar(X4) != 21 | substr(X4, 19, 21) %in% cod_erro), status_tab := "erro geocodigo"] # 830540 faces nessa condicao
+    [!is.na(X4) & !(status_tab %in% c("geocodigo nulo", "erro geocodigo")) & CONT > 1, status_tab := "geocodigo duplicado"]
+    [!is.na(X4) & nchar(X4) == 21 & !(substr(X4, 19, 21) %in% cod_erro) & CONT == 1, status_tab := "perfeita"]
+    [status_tab == "perfeita"]
+  )
   
   # carrega a tabela de avaliacao das faces com geometria
-  faces_aval <- faces_aval_geo |> filter(substr(cod_faces_aval, 1, 7) == lista_mun[i])
+  faces_aval <- faces_aval_geo |> filter(substr(cod_faces_aval, 1, 7) == lista_mun[i]) |> select(ID, status_geo) |> collect()
 
-
+  # junta a geometria com a avaliacao
+  faces <- full_join(faces_geo, faces_aval, by = "ID")
+  
   # junta a geometria com os dados das faces - mantendo todas as feições das duas camadas
-  faces <- full_join(faces_geo, tabela_faces, by = setNames(nm = cod_face, cod_tabface), keep = TRUE)
+  faces <- full_join(faces, tabela_faces, by = setNames(nm = cod_face, cod_tabface), keep = TRUE)
   
   # preenche a lista de avaliação com os dados do município - faces associadas e não associadas
   aval_quali[[i]] <- data.frame(
@@ -150,14 +164,21 @@ for (i in seq_along(lista_mun)) {
     # áreas de risco
     areas_de_risco = areas_risco |> nrow(),
     # faces com geometria e variáveis
-    faces_com_dado = faces |> drop_na(cod_face, cod_tabface) |> nrow(),
+    faces_com_dado = faces |> filter(status_geo == "perfeita" & status_tab == "perfeita") |> nrow(),
     # faces sem variáveis
-    faces_sem_dado = sum(is.na(faces[cod_tabface])),
-    #faces sem geometria
+    faces_sem_dado = faces |> filter(status_geo != "perfeita") |> nrow(),
+    # faces_sem_dado = sum(is.na(faces[cod_tabface])),
+    #faces sem geometria 
+    
+    ################ PAREI AQUI
+    ################ PAREI AQUI
+    ################ PAREI AQUI
+    ################ PAREI AQUI
+    
     faces_sem_geo = sum(is.na(faces[cod_face])))
   
   # remove as faces sem geometria da camada
-  faces <- faces |> drop_na(cod_face)
+  faces <- faces |> filter(status_geo)
   
   # cria diretório de saída
   dir.create(paste(output, "/", lista_mun[i], sep = ""))

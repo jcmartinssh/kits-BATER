@@ -43,7 +43,7 @@ setkey(tabfaces, X4)
 
 nrow(tabfaces[!is.na(X4) & nchar(X4) == 21 & !(substr(X4, 19, 21) %in% cod_erro) & CONT == 1])
 
-(# tem um erro aqui
+(
   tabfaces
   [, CONT := .N, by = X4]
   [is.na(X4), status_tab := "geocodigo nulo"] # nenhuma face nessa condicao
