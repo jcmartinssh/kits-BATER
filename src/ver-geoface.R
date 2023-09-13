@@ -89,10 +89,10 @@ faces_irrec <- fsetdiff(faces_problema, faces_georec, all = TRUE)
 rm(faces_problema)
 gc()
 
-faces_georec[, status_geo := "recuperaveis"]
-faces_irrec[, status_geo := "invalidas"]
-faces_dp[, status_geo := "duplicadas"]
-faces_perf[, status_geo := "perfeitas"]
+faces_georec[, status_geo := "recuperavel"]
+faces_irrec[, status_geo := "invalida"]
+faces_dp[, status_geo := "duplicada"]
+faces_perf[, status_geo := "perfeita"]
 
 id_geom <- faces_georec[, ID]
 id_geom_sql <- id_geom |> paste(collapse = ", ")
@@ -154,9 +154,9 @@ tempo <- fim - inicio
 # 
 # falha_setores <- setores_censitarios[faces_geoorec_falha, op = st_intersects]
 
-faces_georec[is.na(CD_GEOCODI), status_geo := "invalidas"]
+faces_georec[is.na(CD_GEOCODI), status_geo := "invalida"]
 
-faces_georec[status_geo == "recuperaveis", ':=' (CD_SETOR = CD_GEOCODI, CD_GEO = paste(CD_SETOR, CD_QUADRA, CD_FACE, sep = ""))]
+faces_georec[status_geo == "recuperavel", ':=' (CD_SETOR = CD_GEOCODI, CD_GEO = paste(CD_SETOR, CD_QUADRA, CD_FACE, sep = ""))]
 
 setkey(faces_georec, CD_GEO)
 
@@ -166,8 +166,8 @@ facesGeocod_ex <- c(faces_perf$CD_GEO, unique(faces_dp$CD_GEO))
 
 (
   faces_georec
-  [status_geo == "recuperaveis" & (CONT > 1 | CD_GEO %in% FacesGeocod_ex), status_geo := "duplicadas"]
-  [status_geo == "recuperaveis", status_geo := "recuperadas"]
+  [status_geo == "recuperavel" & (CONT > 1 | CD_GEO %in% FacesGeocod_ex), status_geo := "duplicada"]
+  [status_geo == "recuperavel", status_geo := "recuperada"]
   [, CD_GEOCODI := NULL]
 )
 
