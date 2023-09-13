@@ -190,7 +190,7 @@ for (i in seq_along(lista_mun)) {
   # preenche a lista de avaliação com os dados do município - faces associadas e não associadas
   aval_quali[[i]] <- data.frame(
     # código do município
-    municipio = lista_mun[i],
+    CD_GEOCODM = lista_mun[i],
     
     # áreas de risco
     areas_de_risco = areas_risco |> nrow(),
@@ -237,18 +237,14 @@ for (i in seq_along(lista_mun)) {
 fim <- Sys.time()
 tempo <- fim - inicio
 
-# consolida a lista de tabelas de avaliação das faces por município em uma úniica tabela
+sql_mun <- paste(lista_mun, collapse = ", ")
+
+nm_municipios <- st_read(municipios_gpkg, query = paste("SELECT CD_GEOCODM, NM_MUNICIP FROM ", municipios_layer, " WHERE ", cod_mun, " in (", sql_mun, ")", sep = ""))
+
+# consolida a lista de tabelas de avaliação das faces por município em uma úniica tabela e adiciona os nomes
 aval_quali <- bind_rows(aval_quali)
+aval_quali <- left_join(nm_municipios, aval_quali, by = c("CD_GEOCODM"))
 
 # exporta a tabela de avaliação
-write_sf(aval_quali, dsn = paste(output, "/", "avaliacao.ods", sep = ""))
+write_sf(aval_quali, dsn = paste(output, "/kits/", "/", "avaliacao.ods", sep = ""))
 
-
-# faces com geometria e variáveis
-faces |> filter(status_geo == "perfeita" & status_tab == "perfeita") |> nrow()
-
-# faces sem dado
-faces |> filter((status_geo == "perfeita" & (status_tab != "perfeita" | is.na(status_tab))) | status_geo != "perfeita" | is.na(status_geo) ) |> nrow()
-
-# faces sem geometria 
-faces |> filter(is.na(status_geo)) |> nrow()
