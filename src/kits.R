@@ -216,7 +216,7 @@ for (i in seq_along(lista_mun)) {
   dir.create(paste(output, "/", lista_mun[i], sep = ""))
   
   # nome raiz de saída
-  saida <- paste(output, "/", lista_mun[i], "/", lista_mun[i], sep = "")
+  saida <- paste(output, "/kits/", lista_mun[i], "/", lista_mun[i], sep = "")
   
   # exporta as áreas de risco
   write_sf(areas_risco, paste(saida, "_areas_risco", ".shp", sep = ""))
