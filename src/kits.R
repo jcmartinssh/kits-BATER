@@ -113,7 +113,7 @@ lista_mun <- read_sf(AR_gpkg,
                      query = paste("SELECT DISTINCT ", cod_AR, " FROM ", lote_layer)) |> pull() |> as.character()
 
 # para testar
-lista_mun <- lista_mun[5:7]
+# lista_mun <- lista_mun[5:7]
 
 ### agora que começam as paradas
 
@@ -123,7 +123,7 @@ aval_quali <- list()
 # carrega o arquivo parquet de avaliacao das faces com geometria como dataset, para lazy evaluation
 faces_aval_geo <- open_dataset(faces_aval_parquet)
 
-teste <- faces_aval_geo |> filter(substr(get(cod_faces_aval), 1, 7) == lista_mun[i]) |> collect()
+# teste <- faces_aval_geo |> filter(substr(get(cod_faces_aval), 1, 7) == lista_mun[i]) |> collect()
 # teste2 <- faces_aval_geo |> collect() |> filter(substr(CD_GEO, 1, 7) == lista_mun[i])
 
 # prooduz padrao de erro no geocodigo das faces
@@ -199,7 +199,7 @@ for (i in seq_along(lista_mun)) {
     faces_com_dado = faces |> filter(status_geo == "perfeita" & status_tab == "perfeita") |> nrow(),
     
     # faces sem variáveis
-    faces_sem_dado = faces |> filter(!(is.na(status_geo)) & status_tab != "perfeita") |> nrow(),
+    faces_sem_dado = faces |> filter((status_geo == "perfeita" & (status_tab != "perfeita" | is.na(status_tab))) | status_geo != "perfeita" ) |> nrow(),
     # faces_sem_dado = sum(is.na(faces[cod_tabface])),
     
     #faces sem geometria 
@@ -213,7 +213,8 @@ for (i in seq_along(lista_mun)) {
   faces <- faces |> mutate(status_final = if_else(status_geo == "perfeita" & (!(is.na(status_tab)) & status_tab == "perfeita"), "com dados", "sem dados"))
   
   # cria diretório de saída
-  dir.create(paste(output, "/", lista_mun[i], sep = ""))
+  dir.create(paste(output, "/kits", sep = ""))
+  dir.create(paste(output, "/kits/", lista_mun[i], sep = ""))
   
   # nome raiz de saída
   saida <- paste(output, "/kits/", lista_mun[i], "/", lista_mun[i], sep = "")
@@ -242,3 +243,12 @@ aval_quali <- bind_rows(aval_quali)
 # exporta a tabela de avaliação
 write_sf(aval_quali, dsn = paste(output, "/", "avaliacao.ods", sep = ""))
 
+
+# faces com geometria e variáveis
+faces |> filter(status_geo == "perfeita" & status_tab == "perfeita") |> nrow()
+
+# faces sem dado
+faces |> filter((status_geo == "perfeita" & (status_tab != "perfeita" | is.na(status_tab))) | status_geo != "perfeita" | is.na(status_geo) ) |> nrow()
+
+# faces sem geometria 
+faces |> filter(is.na(status_geo)) |> nrow()
