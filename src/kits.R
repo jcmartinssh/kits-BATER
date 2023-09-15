@@ -104,6 +104,8 @@ cod_faces_aval <-  select.list(col_faces_aval, title = "código das faces", grap
 
 col_mun <- read_sf(municipios_gpkg, query = paste("SELECT * from ", municipios_layer, " LIMIT 0", sep = "")) |> colnames()
 cod_mun <-  select.list(col_mun, title = "código dos municípios", graphics = TRUE)
+nom_mun <-  select.list(col_mun, title = "nome dos municípios", graphics = TRUE)
+
 #
 # tem que resolver a questão dos municípios novos não presentes na base de 2010 - são só dois.
 #
@@ -239,11 +241,11 @@ tempo <- fim - inicio
 
 sql_mun <- paste(lista_mun, collapse = ", ")
 
-nm_municipios <- st_read(municipios_gpkg, query = paste("SELECT CD_GEOCODM, NM_MUNICIP FROM ", municipios_layer, " WHERE ", cod_mun, " in (", sql_mun, ")", sep = ""))
+nm_municipios <- st_read(municipios_gpkg, query = paste("SELECT ", cod_mun, ", ", nom_mun, " FROM ", municipios_layer, " WHERE ", cod_mun, " in (", sql_mun, ")", sep = ""))
 
 # consolida a lista de tabelas de avaliação das faces por município em uma úniica tabela e adiciona os nomes
 aval_quali <- bind_rows(aval_quali)
-aval_quali <- left_join(nm_municipios, aval_quali, by = c("CD_GEOCODM"))
+aval_quali <- left_join(nm_municipios, aval_quali, by = c(cod_mun))
 
 # exporta a tabela de avaliação
 write_sf(aval_quali, dsn = paste(output, "/kits/", "/", "avaliacao.ods", sep = ""))

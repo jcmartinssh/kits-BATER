@@ -36,8 +36,11 @@ setores_ver <- st_layers(setores_gpkg)
 faces_layer <- select.list(faces_ver[[1]], title = "base de faces:", graphics = TRUE)
 setores_layer <- select.list(setores_ver[[1]], title = "base de setores:", graphics = TRUE)
 
-faces_col_sql <- read_sf(faces_gpkg, query = paste("SELECT * from ", faces_layer, " LIMIT 0", sep = "")) |>
+faces_col_sql <- read_sf(faces_gpkg, query = paste("SELECT * FROM ", faces_layer, " LIMIT 0", sep = "")) |>
   colnames()
+
+setores_col <- st_read(setores_gpkg, query = paste("SELECT * FROM ", setores_layer, " LIMIT 0", sep = "")) |> colnames()
+setores_geocod <- select.list(setores_col, title = "Geocodigo dos setores:", graphics = TRUE)
 
 faces_col_sql <- faces_col_sql[! faces_col_sql == "geom"] |> paste(collapse = ", ")
 
@@ -109,7 +112,7 @@ gc()
 faces_georec <- faces_georec |> st_as_sf() |> st_make_valid()
 
 setores_censitarios <- read_sf(setores_gpkg,
-                               query = paste("SELECT CD_GEOCODI, geom FROM ", setores_layer)) |> 
+                               query = paste("SELECT ", setores_geocod, ", geom FROM ", setores_layer)) |> 
   st_make_valid() |>
   st_filter(faces_georec)
 
@@ -154,24 +157,26 @@ tempo <- fim - inicio
 # 
 # falha_setores <- setores_censitarios[faces_geoorec_falha, op = st_intersects]
 
-faces_georec[is.na(CD_GEOCODI), status_geo := "invalida"]
+faces_georec[is.na(setores_geocod), status_geo := "invalida"]
 
-faces_georec[status_geo == "recuperavel", ':=' (CD_SETOR = CD_GEOCODI, CD_GEO = paste(CD_SETOR, CD_QUADRA, CD_FACE, sep = ""))]
+faces_georec[status_geo == "recuperavel", ':=' (CD_SETOR = setores_geocod, CD_GEO = paste(CD_SETOR, CD_QUADRA, CD_FACE, sep = ""))]
 
 setkey(faces_georec, CD_GEO)
 
-faces_georec[, CONT := .N, by = CD_GEO]
+faces_georec[, CONT := .N, by = setores_geocod]
 
-facesGeocod_ex <- c(faces_perf$CD_GEO, unique(faces_dp$CD_GEO))
+facesGeocod_ex <- c(faces_perf[setores_geocod], unique(faces_dp$CD_GEO))
 
 (
   faces_georec
   [status_geo == "recuperavel" & (CONT > 1 | CD_GEO %in% FacesGeocod_ex), status_geo := "duplicada"]
   [status_geo == "recuperavel", status_geo := "recuperada"]
-  [, CD_GEOCODI := NULL]
+  [, setores_geocod := NULL]
 )
 
-faces_geo_aval <- rbindlist(list(faces_georec, faces_irrec, faces_dp, faces_perf))
+# faces_geo_aval <- rbindlist(list(faces_georec, faces_irrec, faces_dp, faces_perf))
+faces_geo_aval <- rbindlist(list(faces_irrec, faces_perf))
+
 
 rm(faces_georec, faces_irrec, faces_dp, faces_perf)
 gc()
