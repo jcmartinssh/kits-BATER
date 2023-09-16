@@ -245,7 +245,7 @@ nm_municipios <- st_read(municipios_gpkg, query = paste("SELECT ", cod_mun, ", "
 
 # consolida a lista de tabelas de avaliação das faces por município em uma úniica tabela e adiciona os nomes
 aval_quali <- bind_rows(aval_quali)
-aval_quali <- left_join(nm_municipios, aval_quali, by = c(cod_mun))
+aval_quali <- left_join(nm_municipios, aval_quali, by = join_by(!!cod_mun == "CD_GEOCODM"))
 
 # exporta a tabela de avaliação
 write_sf(aval_quali, dsn = paste(output, "/kits/", "/", "avaliacao.ods", sep = ""))
