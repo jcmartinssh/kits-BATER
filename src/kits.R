@@ -15,6 +15,19 @@ filtro_parquet <- matrix(c("Parquet", "*.parquet", "All files", "*"),
                      byrow = TRUE
 )
 
+# para facilitar a avaliacao das bases sem a producao do kit
+op1 <- "Produzir os kits e tabela de avaliação das faces"
+
+op2 <- "Produzir somente a tabela de avaliação das faces"
+
+proc <- select.list(c(op1, op2), preselect = op2, multiple = FALSE, title = "Seleção de procedimento", graphics = TRUE)
+
+if (proc == op1) {
+  prod_kits = TRUE
+} else {
+  prod_kits = FALSE
+}
+
 # escolhe diretrório de saída
 # output <- selectDirectory(caption = "diretório de saída:", label = "Select", path = "./data/")
 output <- tcltk::tk_choose.dir(caption = "selecionar diretório de saída:")
@@ -188,6 +201,9 @@ for (i in seq_along(lista_mun)) {
   
   rm(tabela_faces)
   gc()
+
+  # intersecciona as faces com areas de risco e registra a informacao na face
+  faces |> mutate(IC_ARisco = ifelse(st_intersects(areas_risco) == TRUE, TRUE, FALSE))
   
   # preenche a lista de avaliação com os dados do município - faces associadas e não associadas
   aval_quali[[i]] <- data.frame(
@@ -202,39 +218,44 @@ for (i in seq_along(lista_mun)) {
     
     # faces sem variáveis
     faces_sem_dado = faces |> filter((status_geo == "perfeita" & (status_tab != "perfeita" | is.na(status_tab))) | status_geo != "perfeita" ) |> nrow(),
-    # faces_sem_dado = sum(is.na(faces[cod_tabface])),
     
+    # faces com dado em área de risco
+    faces_com_dado_AR = faces |> filter(status_geo == "perfeita" & status_tab == "perfeita" & IC_ARisco == TRUE) |> nrow(),
+
+    # faces sem variáveis em área de risco
+    faces_sem_dado = faces |> filter(((status_geo == "perfeita" & (status_tab != "perfeita" | is.na(status_tab))) | status_geo != "perfeita") &  & IC_ARisco == TRUE) |> nrow(),
+
     #faces sem geometria 
     faces_sem_geo = faces |> filter(status_geo != "perfeita" & !(is.na(status_tab))) |> nrow()
     )
+  if(prod_kits == TRUE) {
+    # remove as faces sem geometria da camada
+    faces <- faces |> drop_na(status_geo)
   
-  # remove as faces sem geometria da camada
-  faces <- faces |> drop_na(status_geo)
+    # faz a classificacao final das faces
+    faces <- faces |> mutate(status_final = if_else(status_geo == "perfeita" & (!(is.na(status_tab)) & status_tab == "perfeita"), "com dados", "sem dados"))
   
-  # faz a classificacao final das faces
-  faces <- faces |> mutate(status_final = if_else(status_geo == "perfeita" & (!(is.na(status_tab)) & status_tab == "perfeita"), "com dados", "sem dados"))
+    # cria diretório de saída
+    dir.create(paste(output, "/kits", sep = ""))
+    dir.create(paste(output, "/kits/", lista_mun[i], sep = ""))
   
-  # cria diretório de saída
-  dir.create(paste(output, "/kits", sep = ""))
-  dir.create(paste(output, "/kits/", lista_mun[i], sep = ""))
+    # nome raiz de saída
+    saida <- paste(output, "/kits/", lista_mun[i], "/", lista_mun[i], sep = "")
   
-  # nome raiz de saída
-  saida <- paste(output, "/kits/", lista_mun[i], "/", lista_mun[i], sep = "")
+    # exporta as áreas de risco
+    write_sf(areas_risco, paste(saida, "_areas_risco", ".shp", sep = ""))
   
-  # exporta as áreas de risco
-  write_sf(areas_risco, paste(saida, "_areas_risco", ".shp", sep = ""))
+    # exporta os setores
+    write_sf(setores, paste(saida, "_setores", ".shp", sep = ""))
   
-  # exporta os setores
-  write_sf(setores, paste(saida, "_setores", ".shp", sep = ""))
-  
-  # exporta as faces de logradouro
-  write_sf(faces, paste(saida, "_faces", ".shp", sep = ""))
+    # exporta as faces de logradouro
+    write_sf(faces, paste(saida, "_faces", ".shp", sep = ""))
+  }  
 }
 #### FIM DO LOOP
 ###
 ##
 #
-
 
 fim <- Sys.time()
 tempo <- fim - inicio
