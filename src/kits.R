@@ -15,6 +15,9 @@ filtro_parquet <- matrix(c("Parquet", "*.parquet", "All files", "*"),
                      byrow = TRUE
 )
 
+# como não vamos calcular áreas, desligar a engine de geometria evita problemas e acelera o processamento
+sf_use_s2(FALSE)
+
 # para facilitar a avaliacao das bases sem a producao do kit
 op1 <- "Produzir os kits e tabela de avaliação das faces"
 
@@ -31,6 +34,12 @@ if (proc == op1) {
 # escolhe diretrório de saída
 # output <- selectDirectory(caption = "diretório de saída:", label = "Select", path = "./data/")
 output <- tcltk::tk_choose.dir(caption = "selecionar diretório de saída:")
+
+faces_aval_parquet <- tcltk::tk_choose.files(
+  caption = "selecionar arquivo de avaliação das faces com geometria:",
+  multi = FALSE,
+  filters = filtro_parquet
+)
 
 # seleciona o arquivo geopackage com a base áreas de risco
 # AR_gpkg <- selectFile(caption = "selecionar arquivo de áreas de risco:", label = "Select")
@@ -62,12 +71,6 @@ faces_gpkg <- tcltk::tk_choose.files(
   caption = "selecionar arquivo de base de faces::",
   multi = FALSE,
   filters = filtro_gpkg
-)
-
-faces_aval_parquet <- tcltk::tk_choose.files(
-  caption = "selecionar arquivo de avaliação das faces com geometria:",
-  multi = FALSE,
-  filters = filtro_parquet
 )
 
 municipios_gpkg <- tcltk::tk_choose.files(
@@ -152,21 +155,25 @@ inicio <- Sys.time()
 #### loop de criação de kits por município
 for (i in seq_along(lista_mun)) {
   # carrega o municipio, repara a geometria e converte para WKT
-  municipio <- st_read(municipios_gpkg, query = paste("SELECT * FROM ", municipios_layer, " WHERE ", cod_mun, " = '", lista_mun[i], "'", sep = "")) |> st_make_valid()
+  municipio <- st_read(municipios_gpkg, query = paste("SELECT * FROM ", municipios_layer, " WHERE ", cod_mun, " = '", lista_mun[i], "'", sep = "")) |>
+    st_make_valid()
   
   mun_geom <- municipio |> st_geometry() |> st_as_text()
   
   # carrega as áreas de risco do município
-  areas_risco <- st_read(AR_gpkg, query = paste("SELECT * FROM ", lote_layer, " WHERE ", cod_AR, " = '", lista_mun[i], "'", sep = ""))
+  areas_risco <- st_read(AR_gpkg, query = paste("SELECT * FROM ", lote_layer, " WHERE ", cod_AR, " = '", lista_mun[i], "'", sep = "")) |>
+    st_make_valid()
   
   # carrega os setores do município
-  setores <- st_read(setores_gpkg, query = paste("SELECT * FROM ", setor_layer, " WHERE substr(", cod_set, ", 1, 7) = '", lista_mun[i], "'", sep = ""))
+  setores <- st_read(setores_gpkg, query = paste("SELECT * FROM ", setor_layer, " WHERE substr(", cod_set, ", 1, 7) = '", lista_mun[i], "'", sep = "")) |>
+    st_make_valid()
   #
   # tem que carregar as variáveis de mapeamento nos setores 
   #
   # carrega as faces com geometria do município
   # faces_geo <- read_sf(faces_gpkg, query = paste("SELECT * FROM ", faces_layer, " WHERE substr(", cod_face, ", 1, 7) = '", lista_mun[i], "'", sep = ""))
-  faces_geo <- st_read(faces_gpkg, layer = faces_layer, wkt_filter = mun_geom)
+  faces_geo <- st_read(faces_gpkg, layer = faces_layer, wkt_filter = mun_geom) |>
+    st_make_valid()
   
   faces_id <- faces_geo[id_face] |> pull(get(id_face)) |> as.character() #|> paste(collapse = ", ")
   
@@ -202,31 +209,40 @@ for (i in seq_along(lista_mun)) {
   rm(tabela_faces)
   gc()
 
-  # intersecciona as faces com areas de risco e registra a informacao na face
-  faces |> mutate(IC_ARisco = ifelse(st_intersects(areas_risco) == TRUE, TRUE, FALSE))
-  
   # preenche a lista de avaliação com os dados do município - faces associadas e não associadas
   aval_quali[[i]] <- data.frame(
     # código do município
     CD_GEOCODM = lista_mun[i],
     
     # áreas de risco
-    areas_de_risco = areas_risco |> nrow(),
+    areas_de_risco = areas_risco |> 
+      nrow(),
     
     # faces com geometria e variáveis
-    faces_com_dado = faces |> filter(status_geo == "perfeita" & status_tab == "perfeita") |> nrow(),
+    faces_com_dado = faces |> 
+      filter(status_geo == "perfeita" & status_tab == "perfeita") |> 
+      nrow(),
     
     # faces sem variáveis
-    faces_sem_dado = faces |> filter((status_geo == "perfeita" & (status_tab != "perfeita" | is.na(status_tab))) | status_geo != "perfeita" ) |> nrow(),
+    faces_sem_dado = faces |> 
+      filter((status_geo == "perfeita" & (status_tab != "perfeita" | is.na(status_tab))) | status_geo != "perfeita" ) |> 
+      nrow(),
     
     # faces com dado em área de risco
-    faces_com_dado_AR = faces |> filter(status_geo == "perfeita" & status_tab == "perfeita" & IC_ARisco == TRUE) |> nrow(),
+    faces_com_dado_AR = faces |> 
+      st_filter(areas_risco, .predicate = st_intersects) |>
+      filter(status_geo == "perfeita" & status_tab == "perfeita") |> 
+      nrow(),
 
     # faces sem variáveis em área de risco
-    faces_sem_dado = faces |> filter(((status_geo == "perfeita" & (status_tab != "perfeita" | is.na(status_tab))) | status_geo != "perfeita") &  & IC_ARisco == TRUE) |> nrow(),
+    faces_sem_dado_AR = faces |>
+      st_filter(areas_risco, .predicate = st_intersects) |>
+      filter((status_geo == "perfeita" & (status_tab != "perfeita" | is.na(status_tab))) | status_geo != "perfeita") |>
+      nrow(),
 
     #faces sem geometria 
-    faces_sem_geo = faces |> filter(status_geo != "perfeita" & !(is.na(status_tab))) |> nrow()
+    faces_sem_geo = faces |> filter(status_geo != "perfeita" & !(is.na(status_tab))) |> 
+      nrow()
     )
   if(prod_kits == TRUE) {
     # remove as faces sem geometria da camada
@@ -269,5 +285,4 @@ aval_quali <- bind_rows(aval_quali)
 aval_quali <- left_join(nm_municipios, aval_quali, by = join_by(!!cod_mun == "CD_GEOCODM"))
 
 # exporta a tabela de avaliação
-write_sf(aval_quali, dsn = paste(output, "/kits/", "/", "avaliacao.ods", sep = ""))
-
+write_sf(aval_quali, dsn = paste(output, "/", "avaliacao.ods", sep = ""))
