@@ -1,6 +1,5 @@
 library(sf)
-library(stringr)
-library(arrow)
+# library(rstudioapi)
 library(dplyr)
 library(tidyr)
 library(data.table)
@@ -42,42 +41,16 @@ faces_aval_parquet <- tcltk::tk_choose.files(
 )
 
 # seleciona o arquivo geopackage com a base áreas de risco
-# AR_gpkg <- selectFile(caption = "selecionar arquivo de áreas de risco:", label = "Select")
-AR_gpkg <- tcltk::tk_choose.files(
-  caption = "selecionar arquivo de áreas de risco:",
-  multi = FALSE,
-  filters = filtro_gpkg
-)
+AR_gpkg <- tcltk::tk_choose.files(caption = "selecionar arquivo de áreas de risco:", multi = FALSE)
 
 # seleciona o arquivo geopackage com a base de faces com variáveis de mapeamento
-# tabfaces_gpkg <- selectFile(caption = "selecionar arquivo de variáveis de faces:", label = "Select")
-tabfaces_gpkg <- tcltk::tk_choose.files(
-  caption = "selecionar arquivo de variáveis de faces:",
-  multi = FALSE,
-  filters = filtro_gpkg
-)
+tabfaces_gpkg <- tcltk::tk_choose.files(caption = "selecionar arquivo de variáveis de faces:", multi = FALSE)
 
 # seleciona o arquivo geopackage com a base de setores censitários
-# setores_gpkg <- selectFile(caption = "selecionar arquivo de setores:", label = "Select")
-setores_gpkg <- tcltk::tk_choose.files(
-  caption = "selecionar arquivo de setores:",
-  multi = FALSE,
-  filters = filtro_gpkg
-)
+setores_gpkg <- tcltk::tk_choose.files(caption = "selecionar arquivo de setores:", multi = FALSE)
 
 # seleciona o arquivo geopackage com a base de faces com geometria
-# faces_gpkg <- selectFile(caption = "selecionar arquivo de base de faces:", label = "Select")
-faces_gpkg <- tcltk::tk_choose.files(
-  caption = "selecionar arquivo de base de faces::",
-  multi = FALSE,
-  filters = filtro_gpkg
-)
-
-municipios_gpkg <- tcltk::tk_choose.files(
-  caption = "selecionar municípios:",
-  multi = FALSE,
-  filters = filtro_gpkg
-)
+faces_gpkg <- tcltk::tk_choose.files(caption = "selecionar arquivo de base de faces:", multi = FALSE)
 
 
 # cria lista de camadas para cada arquivo de base
