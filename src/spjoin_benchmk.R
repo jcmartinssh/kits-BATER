@@ -7,6 +7,8 @@ library(purrr)
 library(ggplot2)
 library(parallel)
 
+# script para testar performance do uso dos pacotes e funcoes
+
 filtro_gpkg <- matrix(c("Geopackage", "*.gpkg", "All files", "*"),
                       2, 2,
                       byrow = TRUE

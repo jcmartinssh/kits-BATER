@@ -4,6 +4,8 @@ library(stringr)
 library(sf)
 # library(arrow)
 
+# Script  para carregar o geocodigo do municipio pela UF e nome
+
 rm_accent <- function(str, pattern = "all") {
   # Rotinas e funções úteis V 1.0
   # rm.accent - REMOVE ACENTOS DE PALAVRAS
