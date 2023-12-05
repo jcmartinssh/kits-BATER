@@ -1,7 +1,6 @@
 # script para producao das pastas contendos os arquivos necessarios para mapeamento da BATER por municipio
 
 library(sf)
-# library(rstudioapi)
 library(stringr)
 library(dplyr)
 library(tidyr)
