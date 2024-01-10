@@ -1,5 +1,9 @@
 # script para producao das pastas contendos os arquivos necessarios para mapeamento da BATER por municipio
 
+# municipios com problema nas areas de risco no kit
+
+erro_mun <- c("2914802", "3128808", "2607208", "1400100", "1500404", "5002704", "3547304", "1303908", "3302056", "3304904", "3305752", "3306008", "1200252", "1300060", "1303700")
+
 library(sf)
 library(stringr)
 library(dplyr)
@@ -196,9 +200,16 @@ lista_mun_tot <- read_sf(AR_arq, query = paste("SELECT DISTINCT ", cod_AR, " FRO
   pull() |>
   as.character()
 
+# lista_mun <- erro_mun[1:3]
+lista_mun <- lista_mun_tot
 # para testar
-lista_mun <- lista_mun_tot[145:146]
+# lista_mun <- lista_mun_tot[145:146]
 # i <- 1
+
+# carrega a camada completa das areas de risco
+# evita problema de carregar por municipio e esses acabarem sem feicoes
+areas_risco_tot <- st_read(AR_arq, layer = "AR_Lote5_semDup") |>
+  st_make_valid()
 
 # lista para armazenar informações sobre a associação de dados com geometria das faces
 aval_quali <- list()
@@ -220,7 +231,10 @@ for (i in seq_along(lista_mun)) {
     st_as_text()
 
   # carrega as áreas de risco do município
-  areas_risco <- st_read(AR_arq, query = paste("SELECT * FROM ", lote_layer, " WHERE ", cod_AR, " = '", lista_mun[i], "'", sep = "")) |>
+  # areas_risco <- st_read(AR_arq, query = paste("SELECT * FROM ", lote_layer, " WHERE ", cod_AR, " = '", lista_mun[i], "'", sep = "")) |>
+  #   st_make_valid()
+  areas_risco <- areas_risco_tot |>
+    filter(.data[[cod_AR]] == lista_mun[i]) |>
     st_make_valid()
 
   # carrega os setores do município
@@ -332,12 +346,12 @@ for (i in seq_along(lista_mun)) {
 
     # faces com geometria e variáveis
     faces_com_dado = faces |>
-      filter((!(is.na(status_tab)) & status_geo == "perfeita") & (!(is.na(status_tab)) & status_tab == "perfeita")) |>
+      filter(status_final %in% c("perfeita", "geo duplicada")) |>
       nrow(),
 
     # faces sem variáveis
     faces_sem_dado = faces |>
-      filter((status_geo == "perfeita" & (status_tab != "perfeita" | is.na(status_tab))) | status_geo != "perfeita") |>
+      filter(!(status_final %in% c("perfeita", "geo duplicada"))) |>
       nrow(),
 
     # faces com dado em área de risco
@@ -349,11 +363,11 @@ for (i in seq_along(lista_mun)) {
     # faces sem variáveis em área de risco
     faces_sem_dado_AR = faces |>
       st_filter(areas_risco, .predicate = st_intersects) |>
-      filter((status_geo == "perfeita" & (status_tab != "perfeita" | is.na(status_tab))) | status_geo != "perfeita") |>
+      filter(!(status_final %in% c("perfeita", "geo duplicada"))) |>
       nrow(),
 
     # faces sem geometria
-    faces_sem_geo = faces |> filter(status_geo != "perfeita" & !(is.na(status_tab))) |>
+    faces_sem_geo = faces |> filter(is.na(status_geo) & !(is.na(status_tab))) |>
       nrow()
   )
 
@@ -406,6 +420,21 @@ write_sf(aval_quali, dsn = paste(output, "/avaliacao.ods", sep = ""))
 
 # obs <- faces |>
 #   select(ID, CD_GEO, status_geo, status_tab, status_final)
+
+
+### VERIFICANDO ERROS EM ALGUNS MUNICIPIOS COM CAMADA DE AREAS DE RISCO VAZIAS
+
+# areas_risco <- st_read(AR_arq, query = paste("SELECT * FROM ", lote_layer, " WHERE ", cod_AR, " = '3128808'", sep = "")) |>
+#   st_make_valid()
+
+# areas_risco <- st_read(AR_arq, query = "SELECT * FROM AR_Lote5_semDup WHERE GEOCODIGO = 3128808", sep = "") |>
+#   st_make_valid()
+
+# areas_risco_tot <- st_read(AR_arq, layer = "AR_Lote5_semDup") |>
+#   st_make_valid()
+
+# areas_risco <- areas_risco_tot |>
+#   filter(GEOCODIGO == "3128808")
 
 ################################################
 ### ANALIZANDO CATEGORIAS DE ERROS NAS FACES ###
@@ -502,3 +531,75 @@ write_sf(aval_quali, dsn = paste(output, "/avaliacao.ods", sep = ""))
 ################################################
 ### ANALIZANDO CATEGORIAS DE ERROS NAS FACES ###
 ################################################
+
+
+# faces_geo <- st_read(faces_arq, layer = faces_layer) |>
+#   st_make_valid()
+
+# # carrega as faces avaliadas
+# faces_aval <- faces_aval_geo |>
+#   select(!!id_faces_aval, status_geo) |>
+#   collect()
+
+# # junta a geometria com a avaliacao
+# # o campo id esta hardcoded, mudar para a variavel que recebe o nome da coluna
+# faces <- full_join(faces_geo, faces_aval, by = join_by(!!id_face == !!id_faces_aval), na_matches = "never")
+# # faces <- full_join(faces_geo, faces_aval, by = c(!!id_face, !!id_faces_aval), na_matches = "never")
+# rm(faces_geo, faces_aval)
+# gc()
+
+# # carrega a tabela de variáveis das faces do município e nomeia as colunas com as variaveis agregadas a BATER
+# tabela_faces <- st_read(tabfaces_arq, layer = tabfaces_layer) |> setDT()
+
+# # pega o nome das colunas com variavies das faces CNEFE
+# olcol <- colnames(tabela_faces)[9:32]
+
+# # cria os codigos das variaveis da publicacao proceduralmente
+# neocol <- paste("V", str_pad(1:24, 3, pad = "0"), sep = "")
+
+# # substitui o nome das colunas pelos da publicacao
+# setnames(tabela_faces, olcol, neocol)
+
+# # classifica as faces segundo os erros encontrados no geocodigo da tabela de faces CNEFE
+# (
+#   tabela_faces
+#   [, CONT := .N, by = X4]
+#   [is.na(X4), status_tab := "geocodigo nulo"] # nenhuma face nessa condicao
+#   [!is.na(X4) & (nchar(X4) != 21 | substr(X4, 19, 21) %in% cod_erro), status_tab := "erro geocodigo"] # 830540 faces nessa condicao
+#   [!is.na(X4) & !(status_tab %in% c("geocodigo nulo", "erro geocodigo")) & CONT > 1, status_tab := "geocodigo duplicado"]
+#   [!is.na(X4) & nchar(X4) == 21 & !(substr(X4, 19, 21) %in% cod_erro) & CONT == 1, status_tab := "perfeita"]
+# )
+
+
+# # junta a geometria com os dados das faces CNEFE - mantendo todas as feições das duas camadas
+# # faces <- full_join(faces, tabela_faces, by = setNames(nm = cod_face, cod_tabface), keep = TRUE)
+# faces <- full_join(faces, tabela_faces, by = join_by(!!cod_face == !!cod_tabface), keep = TRUE)
+
+# rm(tabela_faces)
+# gc()
+
+# # faz a classificacao final das faces
+# faces <- faces |>
+#   mutate(
+#     status_final = case_when(
+#       is.na(status_geo) & status_tab == "erro geocodigo" ~ "sem associacao geo",
+#       is.na(status_geo) & status_tab == "geocodigo duplicado" ~ "sem associacao geo",
+#       is.na(status_geo) & status_tab == "perfeita" ~ "sem associacao geo",
+#       status_geo == "duplicadas" & is.na(status_tab) ~ "sem associacao tab",
+#       status_geo == "invalidas" & is.na(status_tab) ~ "erro geocodigo",
+#       status_geo == "perfeitas" & is.na(status_tab) ~ "sem associacao tab",
+#       status_geo == "recuperadas" & is.na(status_tab) ~ "sem associacao tab",
+#       status_geo == "duplicadas" & status_tab == "geocodigo duplicado" ~ "duplicada",
+#       status_geo == "duplicadas" & status_tab == "perfeita" ~ "geo duplicada",
+#       status_geo == "invalidas" & status_tab == "erro geocodigo" ~ "erro geocodigo",
+#       status_geo == "invalidas" & status_tab == "geocodigo duplicado" ~ "erro geocodigo",
+#       status_geo == "invalidas" & status_tab == "perfeita" ~ "erro geocodigo geo",
+#       status_geo == "perfeitas" & status_tab == "erro geocodigo" ~ "erro geocodigo tab",
+#       status_geo == "perfeitas" & status_tab == "geocodigo duplicado" ~ "tab duplicada",
+#       status_geo == "perfeitas" & status_tab == "perfeita" ~ "perfeita",
+#       .default = "outro"
+#     )
+#   )
+
+
+# write_sf(faces, paste(output, "/faces_geral", ".shp", sep = ""))

@@ -2,6 +2,10 @@
 # normalizar a classificacao e verificar erros no registro municipal
 
 
+
+# rio branco, com areas de risco multipoligonos
+# 1200401
+
 library(sf)
 library(tidyr)
 library(dplyr)
@@ -118,10 +122,27 @@ lista_mun <- st_read(AR_file, query = paste("SELECT DISTINCT ", cod_AR, " FROM "
     pull() |>
     as.character()
 
-# carrega o arquivo de AR e corrige a geometria
+# carrega o arquivo de AR e corrige a geometria e explode feicoes multipolygon em polygons
 AR_full <- AR_file |>
     st_read(layer = lote_layer) |>
-    st_make_valid()
+    st_make_valid() #|>
+# st_cast("POLYGON")
+
+### To apanhando aqui
+geo_strange <- AR_full %>%
+    filter(!(st_geometry_type(.) %in% c("MULTIPOLYGON"))) |>
+    st_cast("POLYGON", do_split = TRUE)
+
+geo_polyg <- AR_full %>%
+    # filter(st_geometry_type(.) %in% c("POLYGON", "MULTIPOLYGON")) |>
+    st_cast("MULTIPOLYGON") |>
+    st_cast("POLYGON")
+
+ncsf <- st_read(system.file("shapes/sids.shp", package = "spData")[1])
+
+ncmp <- st_cast(ncsf, "POLYGON")
+
+
 
 # cria cópia sem as feições com identificador repitido
 AR_nodup_cols <- AR_full |> distinct(across(setdiff(col_AR, fid_AR)), .keep_all = TRUE)
@@ -326,30 +347,30 @@ st_geometry(Mun_dif) <- NULL
 ## Exporta as tabelas e as areas de risco ##
 ############################################
 
-## exporta a camada de AR com registro do municipio diferente da localizacao
-st_write(
-    AR_mun_dif,
-    paste(saida, "/AR_aval_mun.shp", sep = ""),
-    append = FALSE
-)
+# ## exporta a camada de AR com registro do municipio diferente da localizacao
+# st_write(
+#     AR_mun_dif,
+#     paste(saida, "/AR_aval_mun.shp", sep = ""),
+#     append = FALSE
+# )
 
-## exportar a camada de AR limpas
-st_write(
-    AR_nodup,
-    paste(saida, "/AR_Lote5_semDup.shp", sep = ""),
-    append = FALSE
-)
+# ## exportar a camada de AR limpas
+# st_write(
+#     AR_nodup,
+#     paste(saida, "/AR_Lote5_semDup.shp", sep = ""),
+#     append = FALSE
+# )
 
-## exporta tabela com numero de AR com registro do municipio diferente da localizacao
-st_write(
-    Mun_dif,
-    paste(saida, "/Mun_dif.ods", sep = ""),
-    append = FALSE
-)
+# ## exporta tabela com numero de AR com registro do municipio diferente da localizacao
+# st_write(
+#     Mun_dif,
+#     paste(saida, "/Mun_dif.ods", sep = ""),
+#     append = FALSE
+# )
 
-## exporta tabela com numero de AR duplicada por municipio
-st_write(
-    avaliacao,
-    paste(saida, "/avaliacao_dp.ods", sep = ""),
-    append = FALSE
-)
+# ## exporta tabela com numero de AR duplicada por municipio
+# st_write(
+#     avaliacao,
+#     paste(saida, "/avaliacao_dp.ods", sep = ""),
+#     append = FALSE
+# )
