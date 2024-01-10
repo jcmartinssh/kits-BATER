@@ -57,16 +57,11 @@ library(rlang)
 ############################################
 
 # definicao dos filtros para os tipos de arquivos - opcional.
-# comentar se desejar carregar de outro formato, p. ex. shapefile
-filtro_gpkg <- matrix(c("Geopackage", "*.gpkg", "All files", "*"),
-  2, 2,
+filtro <- matrix(c("Geopackage", "*.gpkg", "Parquet", "*.parquet", "Shapefile", "*.shp", "All files", "*"),
+  4, 2,
   byrow = TRUE
 )
 
-filtro_parquet <- matrix(c("Parquet", "*.parquet", "All files", "*"),
-  2, 2,
-  byrow = TRUE
-)
 
 # desativa a engine para calculos geometricos esfericos - acelera o processamento
 # sf_use_s2(FALSE)
@@ -93,25 +88,25 @@ output <- tcltk::tk_choose.dir(caption = "selecionar diretório de saída:")
 faces_aval_arq <- tcltk::tk_choose.files(
   caption = "selecionar tabela de faces avaliadas:",
   multi = FALSE,
-  filters = filtro_parquet
+  filters = filtro
 )
 
 # seleciona o arquivo geopackage com a base áreas de risco
 AR_arq <- tcltk::tk_choose.files(
   caption = "selecionar arquivo de áreas de risco:", multi = FALSE,
-  filters = filtro_parquet
+  filters = filtro
 )
 
 # seleciona o arquivo geopackage com a base de faces com variáveis de mapeamento
 tabfaces_arq <- tcltk::tk_choose.files(
   caption = "selecionar arquivo de variáveis de faces:", multi = FALSE,
-  filters = filtro_parquet
+  filters = filtro
 )
 
 # seleciona o arquivo geopackage com a base de setores censitários
 setores_arq <- tcltk::tk_choose.files(
   caption = "selecionar arquivo de setores:", multi = FALSE,
-  filters = filtro_parquet
+  filters = filtro
 )
 
 # seleciona o arquivo geopackage com a base de faces com geometria
@@ -119,14 +114,14 @@ setores_arq <- tcltk::tk_choose.files(
 faces_arq <- tcltk::tk_choose.files(
   caption = "selecionar arquivo de base de faces:",
   multi = FALSE,
-  filters = filtro_parquet
+  filters = filtro
 )
 
 # seleciona o arquivo da base de municipios
 municipios_arq <- tcltk::tk_choose.files(
   caption = "selecionar arquivo de base de municípios:",
   multi = FALSE,
-  filters = filtro_parquet
+  filters = filtro
 )
 
 # cria lista de camadas para cada arquivo de base

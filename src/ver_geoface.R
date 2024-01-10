@@ -4,56 +4,69 @@ library(data.table)
 library(arrow)
 library(parallel)
 
+# variavel com hora de inicio para medir o tempo de execucao
 inicio <- Sys.time()
 
-filtro_gpkg <- matrix(c("Geopackage", "*.gpkg", "All files", "*"),
-                      2, 2,
-                      byrow = TRUE
+# filtro de formatos de arquivos
+filtro <- matrix(c("Geopackage", "*.gpkg", "Parquet", "*.parquet", "Shapefile", "*.shp", "All files", "*"),
+  4, 2,
+  byrow = TRUE
 )
 
-# escolhe diretrório de saída
+# escolhe diretório de saida
 output <- tcltk::tk_choose.dir(caption = "diretório de saída:")
 
-# seleciona o arquivo geopackage com a base de faces com geometria
-faces_gpkg <- tcltk::tk_choose.files(
+# seleciona o arquivo com a base de faces com geometria
+faces_arq <- tcltk::tk_choose.files(
   caption = "arquivo das faces com geometria:",
   multi = FALSE,
-  filters = filtro_gpkg
+  filters = filtro
 )
 
-setores_gpkg <- tcltk::tk_choose.files(
+# seleciona o arquivo com a base de setores censitarios
+setores_arq <- tcltk::tk_choose.files(
   caption = "arquivo dos setores censitários:",
   multi = FALSE,
-  filters = filtro_gpkg
+  filters = filtro
 )
 
-# cria lista de camadas para cada arquivo de base
-faces_ver <- st_layers(faces_gpkg)
+# cria lista de camadas do arquivo de faces
+faces_ver <- st_layers(faces_arq)
 
-setores_ver <- st_layers(setores_gpkg)
+# cria lista de camadas do arquivo de setores
+setores_ver <- st_layers(setores_arq)
 
-# seleciona a camada para cada arquivo de base
+# seleciona a camada de faces
 faces_layer <- select.list(faces_ver[[1]], title = "base de faces:", graphics = TRUE)
+
+# seleciona a camada de setores
 setores_layer <- select.list(setores_ver[[1]], title = "base de setores:", graphics = TRUE)
 
-faces_col_sql <- read_sf(faces_gpkg, query = paste("SELECT * FROM ", faces_layer, " LIMIT 0", sep = "")) |>
+# cria lista de colunas da camada de faces
+faces_col <- read_sf(faces_arq, query = paste("SELECT * FROM ", faces_layer, " LIMIT 0", sep = "")) |>
   colnames()
 
-setores_col <- st_read(setores_gpkg, query = paste("SELECT * FROM ", setores_layer, " LIMIT 0", sep = "")) |> colnames()
+# cria lista de colunas da camada de setores
+setores_col <- st_read(setores_arq, query = paste("SELECT * FROM ", setores_layer, " LIMIT 0", sep = "")) |> colnames()
+
+# seleciona coluna com o geocodigo dos setores da camada de setores
 setores_geocod <- select.list(setores_col, title = "Geocodigo dos setores:", graphics = TRUE)
 
-faces_col_sql <- faces_col_sql[! faces_col_sql == "geom"] |> paste(collapse = ", ")
+## ?????
+faces_col_sql <- faces_col[!faces_col == "geom"] |> paste(collapse = ", ")
 
-# testando as relações "one-to-many" nas faces com suas variáveis
+# testando as relações "one-to-many" nas faces com suas variáveis???
 
-faces <- read_sf(faces_gpkg, query = paste("SELECT ", faces_col_sql, " FROM ", faces_layer))
+faces <- read_sf(faces_arq, query = paste("SELECT ", faces_col_sql, " FROM ", faces_layer))
 
 setDT(faces)
 
 setkey(faces, CD_GEO)
 
+# isso aqui é só pra olhar né?
 faces[, CONT := .N, by = CD_GEO]
 
+# tentar melhorar essa verificacao, pra ficar mais geral
 faces_integra <- (
   faces
   [nchar(CD_GEO) == 21 | (nchar(CD_QUADRA) == 3 & nchar(CD_FACE) == 3)]
@@ -100,19 +113,25 @@ faces_perf[, status_geo := "perfeita"]
 id_geom <- faces_georec[, ID]
 id_geom_sql <- id_geom |> paste(collapse = ", ")
 
-faces_geom <- read_sf(faces_gpkg,
-                      query = paste("SELECT ID, geom FROM ",
-                      faces_layer, " WHERE ID IN (", id_geom_sql, ")")) |> setDT()
+faces_geom <- read_sf(faces_arq,
+  query = paste(
+    "SELECT ID, geom FROM ",
+    faces_layer, " WHERE ID IN (", id_geom_sql, ")"
+  )
+) |> setDT()
 
 faces_georec[faces_geom, on = "ID", geom := geom]
 
 rm(faces_geom)
 gc()
 
-faces_georec <- faces_georec |> st_as_sf() |> st_make_valid()
+faces_georec <- faces_georec |>
+  st_as_sf() |>
+  st_make_valid()
 
-setores_censitarios <- read_sf(setores_gpkg,
-                               query = paste("SELECT ", setores_geocod, ", geom FROM ", setores_layer)) |> 
+setores_censitarios <- read_sf(setores_arq,
+  query = paste("SELECT ", setores_geocod, ", geom FROM ", setores_layer)
+) |>
   st_make_valid() |>
   st_filter(faces_georec)
 
@@ -121,7 +140,7 @@ gc()
 func_map_sf <- function(id_face, face_geo = faces_georec, base_setor = setores_censitarios) {
   face <- face_geo[face_geo$ID == id_face, ]
   setor <- base_setor[face, op = st_intersects]
-  face <- st_join(face, setor, join  = st_intersects, left = TRUE, largest = TRUE)
+  face <- st_join(face, setor, join = st_intersects, left = TRUE, largest = TRUE)
   st_geometry(face) <- NULL
   return(face)
 }
@@ -150,16 +169,16 @@ tempo <- fim - inicio
 
 ## verificacao das falhas de associacao com geocodigo do setor - foram duas, problemas na geometria das faces - irrecuperavel
 # faces_geoorec_falha_SQL <- faces_georec[is.na(CD_GEOCODI), ID] |> paste(collapse = ", ")
-# 
+#
 # faces_geoorec_falha <- read_sf(faces_gpkg,
 #                       query = paste("SELECT * FROM ",
 #                                     faces_layer, " WHERE ID IN (", faces_geoorec_falha_SQL, ")"))
-# 
+#
 # falha_setores <- setores_censitarios[faces_geoorec_falha, op = st_intersects]
 
 faces_georec[is.na(setores_geocod), status_geo := "invalida"]
 
-faces_georec[status_geo == "recuperavel", ':=' (CD_SETOR = setores_geocod, CD_GEO = paste(CD_SETOR, CD_QUADRA, CD_FACE, sep = ""))]
+faces_georec[status_geo == "recuperavel", ":="(CD_SETOR = setores_geocod, CD_GEO = paste(CD_SETOR, CD_QUADRA, CD_FACE, sep = ""))]
 
 setkey(faces_georec, CD_GEO)
 
@@ -182,4 +201,3 @@ rm(faces_georec, faces_irrec, faces_dp, faces_perf)
 gc()
 
 write_parquet(faces_geo_aval, sink = paste(output, "/", "faces_geo_aval.parquet", sep = ""))
-
