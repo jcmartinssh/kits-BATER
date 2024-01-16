@@ -1,9 +1,18 @@
-library(sf)
-library(data.table)
-library(parallel)
+## SCRIPT para verificacao, correcao e classificacao da base de faces de logradouro do SISMAP
+## para utilizacao na confeccao da Base Territorial Estatistica de Areas de Risco - BATER
+
+############################
+## configuracoes iniciais ##
+############################
 
 # variavel com hora de inicio para medir o tempo de execucao
 inicio <- Sys.time()
+
+# carrega as bibliotecas - versoes utilizadas anotadas em comentario
+# R versao 4.3.2
+library(sf) # versao 1.0.15
+library(data.table) # versao 1.14.10
+library(parallel) # versao 4.3.2
 
 # desativa geometria esferica
 sf_use_s2(FALSE)
@@ -16,6 +25,11 @@ num_cores <- floor(detectCores() * .875)
 setDTthreads(num_cores)
 
 
+################################################
+## selecao de arquivos e colunas de interesse ##
+################################################
+
+
 # filtro de formatos de arquivos
 filtro <- matrix(c("Geopackage", "*.gpkg", "Parquet", "*.parquet", "Shapefile", "*.shp", "All files", "*"),
   4, 2,
@@ -25,6 +39,10 @@ filtro <- matrix(c("Geopackage", "*.gpkg", "Parquet", "*.parquet", "Shapefile", 
 # escolhe diretório de saida
 output <- tcltk::tk_choose.dir(caption = "diretório de saída:")
 
+#########################
+## faces de logradouro ##
+
+
 # seleciona o arquivo com a base de faces com geometria
 faces_arq <- tcltk::tk_choose.files(
   caption = "arquivo das faces com geometria:",
@@ -32,25 +50,11 @@ faces_arq <- tcltk::tk_choose.files(
   filters = filtro
 )
 
-# seleciona o arquivo com a base de setores censitarios
-setores_arq <- tcltk::tk_choose.files(
-  caption = "arquivo dos setores censitários:",
-  multi = FALSE,
-  filters = filtro
-)
-
-
 # cria lista de camadas do arquivo de faces
 faces_ver <- st_layers(faces_arq)
 
-# cria lista de camadas do arquivo de setores
-setores_ver <- st_layers(setores_arq)
-
 # seleciona a camada de faces
 faces_layer <- select.list(faces_ver[[1]], title = "base de faces:", graphics = TRUE)
-
-# seleciona a camada de setores
-setores_layer <- select.list(setores_ver[[1]], title = "base de setores:", graphics = TRUE)
 
 # carrega estrutura da camada de faces - sem feicoes
 faces_col <- read_sf(faces_arq, query = paste("SELECT * FROM ", faces_layer, " LIMIT 0", sep = ""))
@@ -77,10 +81,31 @@ faces_qdcod <- select.list(faces_col, title = "codigo seq das quadras:", graphic
 # seleciona coluna com o geocodigo das faces da camada de faces
 faces_fccod <- select.list(faces_col, title = "codigo seq das faces:", graphics = TRUE)
 
+# seleciona todas as colunas menos as com nome tipico de geometria para compor string usada na selecao SQL
+faces_col_sql <- faces_col[faces_col != faces_geom] |> paste(collapse = ", ")
+
+
+#########################
+## setores censitarios ##
+
+
+# seleciona o arquivo com a base de setores censitarios
+setores_arq <- tcltk::tk_choose.files(
+  caption = "arquivo dos setores censitários:",
+  multi = FALSE,
+  filters = filtro
+)
+
+# cria lista de camadas do arquivo de setores
+setores_ver <- st_layers(setores_arq)
+
+# seleciona a camada de setores
+setores_layer <- select.list(setores_ver[[1]], title = "base de setores:", graphics = TRUE)
+
 # carrega estrutura da camada de setores - sem feicoes
 setores_col <- st_read(setores_arq, query = paste("SELECT * FROM ", setores_layer, " LIMIT 0", sep = ""))
 
-# determina nome da coluna com geometria da camada de faces
+# determina nome da coluna com geometria da camada de setores
 setores_geom <- attr(setores_col, "sf_column")
 
 # extrai lista de colunas da camada de setores
@@ -90,12 +115,16 @@ setores_col <- setores_col |>
 # seleciona coluna com o geocodigo dos setores da camada de setores
 setores_geocod <- select.list(setores_col, title = "Geocodigo dos setores:", graphics = TRUE)
 
-# seleciona todas as colunas menos as com nome tipico de geometria para compor string usada na selecao SQL
-faces_col_sql <- faces_col[faces_col != faces_geom] |> paste(collapse = ", ")
+
+###########################################################
+## separacao das faces segundo as condicoes do geocodigo ##
+###########################################################
+
 
 # carrega os arquivos de face de logradouro sem a geometria
 # usando LIMIT para testar
-faces <- read_sf(faces_arq, query = paste("SELECT ", faces_col_sql, " FROM ", faces_layer, " LIMIT 1000000"))
+# faces <- read_sf(faces_arq, query = paste("SELECT ", faces_col_sql, " FROM ", faces_layer, " LIMIT 1000000"))
+faces <- read_sf(faces_arq, query = paste("SELECT ", faces_col_sql, " FROM ", faces_layer))
 
 # pra garantir que não tem a coluna com geometria
 st_geometry(faces) <- NULL
@@ -163,6 +192,12 @@ faces_irrec[, status_geo := "invalida"]
 faces_dp[, status_geo := "duplicada"]
 faces_perf[, status_geo := "perfeita"]
 
+
+#########################################################################################
+## recuperacao do geocodigo por associacao espacial com faces no erro do dado do setor ##
+#########################################################################################
+
+
 # cria lista de IDs de faces para carregar geometria
 id_geom <- faces_georec[[faces_id]]
 
@@ -225,8 +260,6 @@ func_map_sf <- function(id_face, face_geo = faces_georec, base_setor = setores_c
   return(face)
 }
 
-## PROCESSAMENTO PARALELIZADO
-
 # cria o cluster para processamento
 cl_proc <- makeCluster(num_cores)
 
@@ -244,11 +277,11 @@ faces_georec <- parLapply(cl = cl_proc, X = id_geom, fun = func_map_sf) |> rbind
 # finaliza o cluster
 stopCluster(cl_proc)
 
-# variavel com hora do fim para medir o tempo de execucao
-fim <- Sys.time()
 
-# calcula tempo decorrido no processamento
-tempo <- fim - inicio
+#####################################################
+## finalizacao da tabela de avaliacao e exportacao ##
+#####################################################
+
 
 # registra classificacao das faces que ficaram sem registro de geocodigo do setor
 # em tese nao precisa, todas as faces devem estar associadas a um setor censitario
@@ -264,6 +297,9 @@ faces_georec[is.na(setores_geocod), status_geo := "invalida"]
 
 # reune os quatro grupos de faces classificadas
 faces_geo_aval <- rbindlist(list(faces_georec, faces_irrec, faces_dp, faces_perf))
+
+# define a chave
+setkeyv(faces_geo_aval, faces_geocod)
 
 # verifica duplicatas e reclassifica as faces recuperadas
 (
@@ -281,3 +317,9 @@ gc()
 
 # salva o arquivo com o nome da camada na pasta de saida no formato parquet
 write_sf(faces_geo_aval, paste(output, "/", faces_layer, "_aval.parquet", sep = ""), driver = "Parquet")
+
+# variavel com hora do fim para medir o tempo de execucao
+fim <- Sys.time()
+
+# calcula tempo decorrido no processamento
+tempo <- fim - inicio
