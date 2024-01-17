@@ -14,6 +14,11 @@ library(sf) # versao 1.0.15
 library(data.table) # versao 1.14.10
 library(parallel) # versao 4.3.2
 
+# dplyr e carregado para fornecer as funcoes para a interface do pacote arrow que
+# esta sendo necessario devido ao limite de caracteres do filtro SQL do pacote sf
+library(dplyr)
+library(arrow)
+
 # desativa geometria esferica
 sf_use_s2(FALSE)
 
@@ -39,15 +44,18 @@ filtro <- matrix(c("Geopackage", "*.gpkg", "Parquet", "*.parquet", "Shapefile", 
 # escolhe diretório de saida
 output <- tcltk::tk_choose.dir(caption = "diretório de saída:")
 
+
 #########################
 ## faces de logradouro ##
-
 
 # seleciona o arquivo com a base de faces com geometria
 faces_arq <- tcltk::tk_choose.files(
   caption = "arquivo das faces com geometria:",
   multi = FALSE,
-  filters = filtro
+  filters = matrix(c("Parquet", "*.parquet"),
+    1, 2,
+    byrow = TRUE
+  )
 )
 
 # cria lista de camadas do arquivo de faces
@@ -61,6 +69,9 @@ faces_col <- read_sf(faces_arq, query = paste("SELECT * FROM ", faces_layer, " L
 
 # determina nome da coluna com geometria da camada de faces
 faces_geom <- attr(faces_col, "sf_column")
+
+# salva a crs da camada de faces
+faces_crs <- st_crs(faces_col)
 
 # extrai o nome das colunas da camada de faces
 faces_col <- faces_col |>
@@ -81,7 +92,7 @@ faces_qdcod <- select.list(faces_col, title = "codigo seq das quadras:", graphic
 # seleciona coluna com o geocodigo das faces da camada de faces
 faces_fccod <- select.list(faces_col, title = "codigo seq das faces:", graphics = TRUE)
 
-# seleciona todas as colunas menos as com nome tipico de geometria para compor string usada na selecao SQL
+# seleciona todas as colunas menos a geometria para compor string usada na selecao SQL
 faces_col_sql <- faces_col[faces_col != faces_geom] |> paste(collapse = ", ")
 
 
@@ -122,9 +133,9 @@ setores_geocod <- select.list(setores_col, title = "Geocodigo dos setores:", gra
 
 
 # carrega os arquivos de face de logradouro sem a geometria
-# usando LIMIT para testar
-# faces <- read_sf(faces_arq, query = paste("SELECT ", faces_col_sql, " FROM ", faces_layer, " LIMIT 1000000"))
-faces <- read_sf(faces_arq, query = paste("SELECT ", faces_col_sql, " FROM ", faces_layer))
+# use a linha com LIMIT para testar
+faces <- read_sf(faces_arq, query = paste("SELECT ", faces_col_sql, " FROM ", faces_layer, " LIMIT 1000000"))
+# faces <- read_sf(faces_arq, query = paste("SELECT ", faces_col_sql, " FROM ", faces_layer))
 
 # pra garantir que não tem a coluna com geometria
 st_geometry(faces) <- NULL
@@ -199,18 +210,27 @@ faces_perf[, status_geo := "perfeita"]
 
 
 # cria lista de IDs de faces para carregar geometria
-id_geom <- faces_georec[[faces_id]]
+id_geom <- faces_georec[[faces_id]] |> as.character()
 
-# transforma a lista em uma string para ser usada em SQL
-id_geom_sql <- id_geom |> paste(collapse = ", ")
+# carrega o arquivo geoparquet das faces SISMAP com geometria como dataset, para lazy evaluation.
+# o filtro de IDs das faces resulta em um SQL muito grande, ultrapassando o limite do GDAL/OGR2OGR e
+# inviabilizando o uso do pacote sf, sendo necessario usar a interface com Parquet oferecida
+# pelo pacote arrow para a recuperacao das faces SISMAP avaliadas por municipio
+faces_geodataset <- open_dataset(faces_arq)
 
-# carrega a geometria das faces passiveis de recuperacao do geocodigo
-faces_geometria <- read_sf(faces_arq,
-  query = paste(
-    "SELECT ", faces_id, ", ", faces_geom, " FROM ",
-    faces_layer, " WHERE ", faces_id, " IN (", id_geom_sql, ")"
-  )
-)
+# produz expressao de filtro para usar com interface arrow
+filter_exp <- paste(faces_id, " %in% c(", paste(id_geom, collapse = ", "), ")", sep = "")
+
+# carrega as faces recuperaveis com identificador e geometria
+# aparentemente o arrow corrompeu o metadado de geometria, que
+# teve que ser recuperado
+faces_geometria <- faces_geodataset |>
+  filter(!!rlang::parse_expr(filter_exp)) |>
+  select(!!faces_id, !!faces_geom) |>
+  collect() |>
+  st_as_sf() |>
+  st_make_valid() |>
+  st_set_crs(faces_crs)
 
 # transforma num data.table
 setDT(faces_geometria)
@@ -239,7 +259,6 @@ setores_censitarios <- read_sf(
 
 # limpa a memoria das ultimas operacoes
 gc()
-
 
 # define a funcao para associar os dados dos setores as faces espacialmente
 func_map_sf <- function(id_face, face_geo = faces_georec, base_setor = setores_censitarios) {
