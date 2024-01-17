@@ -74,9 +74,9 @@ rm_accent <- function(str, pattern = "all") {
 sf_use_s2(FALSE)
 
 
-###############################################
-## seleca de arquivos e colunas de interesse ##
-###############################################
+################################################
+## selecao de arquivos e colunas de interesse ##
+################################################
 
 
 # filtro de formatos de arquivos
@@ -181,7 +181,8 @@ AR_full <- AR_file |>
 
 # separa areas de risco sem geometria
 AR_empty <- AR_full %>%
-    filter(st_is_empty(.))
+    filter(st_is_empty(.)) |>
+    mutate(geom_orig = "vazia")
 
 # remove areas de risco sem geometria e explode multipoligonos em poligonos
 AR_full <- AR_full %>%
@@ -193,6 +194,10 @@ AR_full <- AR_full %>%
     )) |>
     st_cast("MULTIPOLYGON") |>
     st_cast("POLYGON", do_split = TRUE)
+
+# retorna as feicoes sem geometria as areas de risco
+AR_full <- AR_full |>
+    bind_rows(AR_empty)
 
 # remove feicoes duplicadas verificando todos os campos - menos o identificador unico
 AR_nodup_cols <- AR_full |> distinct(across(setdiff(col_AR, fid_AR)), .keep_all = TRUE)
@@ -317,84 +322,88 @@ AR_nodup <- AR_nodup |>
 # ###################################################
 
 
-# # cria cópia das camadas e remove a geometria das copias
-# T_AR_full <- AR_full
+# cria cópia da camada original
+T_AR_full <- AR_full
 
-# st_geometry(T_AR_full) <- NULL
+# remove a geometria da copia
+st_geometry(T_AR_full) <- NULL
 
-# T_AR_nodup <- AR_nodup
+# cria cópia da camada sem duplicadas
+T_AR_nodup <- AR_nodup
 
-# st_geometry(T_AR_nodup) <- NULL
+# remove a geometria da copia
+st_geometry(T_AR_nodup) <- NULL
 
-# gc()
+gc()
 
-# # compila os dados da camada original
-# original <- T_AR_full |>
-#     group_by(!!as.symbol(cod_AR)) |>
-#     summarise(AR_original = n())
+# agrega os dados da camada original por municipio
+original <- T_AR_full |>
+    group_by(!!as.symbol(cod_AR)) |>
+    summarise(AR_original = n())
 
-# # compila os dados da camada sem duplicadas e compoe com dados da camada original
-# avaliacao <- T_AR_nodup |>
-#     group_by(!!as.symbol(cod_AR), geo_dupli, tipo_norm) |>
-#     summarise(n_ar_nodup = n()) |>
-#     pivot_wider(
-#         id_cols = c(!!as.symbol(cod_AR), tipo_norm),
-#         names_from = geo_dupli,
-#         values_from = n_ar_nodup,
-#         names_prefix = "ndp_geodp_",
-#         values_fill = 0
-#     ) |>
-#     pivot_wider(
-#         id_cols = !!as.symbol(cod_AR),
-#         names_from = tipo_norm,
-#         values_from = c(ndp_geodp_nao, ndp_geodp_sim),
-#         values_fill = 0
-#     ) |>
-#     full_join(original, join_by(!!cod_AR)) |>
-#     ungroup() %>%
-#     mutate(
-#         cod_mun = as.character(!!as.symbol(cod_AR)),
-#         AR_unicas = select(., matches("ndp_geodp_nao")) |> rowSums(na.rm = TRUE),
-#         AR_geodp = select(., starts_with("ndp_geodp_sim")) |> rowSums(na.rm = TRUE),
-#         AR_duplicadas = AR_original - (AR_unicas + AR_geodp)
-#     ) |>
-#     rename(
-#         AR_geo = ndp_geodp_nao_geologico,
-#         AR_hidro = ndp_geodp_nao_hidrologico,
-#         AR_misto = ndp_geodp_nao_misto
-#     ) |>
-#     select(
-#         cod_mun,
-#         AR_original,
-#         AR_duplicadas,
-#         AR_unicas,
-#         AR_geodp,
-#         AR_geo,
-#         AR_hidro,
-#         AR_misto
-#     )
+# agrega os dados da camada sem duplicadas por municipio e compoe com dados da camada original
+avaliacao <- T_AR_nodup |>
+    group_by(!!as.symbol(cod_AR), geo_dupli, tipo_norm) |>
+    summarise(n_ar_nodup = n()) |>
+    pivot_wider(
+        id_cols = c(!!as.symbol(cod_AR), tipo_norm),
+        names_from = geo_dupli,
+        values_from = n_ar_nodup,
+        names_prefix = "ndp_geodp_",
+        values_fill = 0
+    ) |>
+    pivot_wider(
+        id_cols = !!as.symbol(cod_AR),
+        names_from = tipo_norm,
+        values_from = c(ndp_geodp_nao, ndp_geodp_sim),
+        values_fill = 0
+    ) |>
+    full_join(original, join_by(!!cod_AR)) |>
+    ungroup() %>%
+    mutate(
+        cod_mun = as.character(!!as.symbol(cod_AR)),
+        AR_unicas = select(., matches("ndp_geodp_nao")) |> rowSums(na.rm = TRUE),
+        AR_geodp = select(., starts_with("ndp_geodp_sim")) |> rowSums(na.rm = TRUE),
+        AR_duplicadas = AR_original - (AR_unicas + AR_geodp)
+    ) |>
+    rename(
+        AR_geo = ndp_geodp_nao_geologico,
+        AR_hidro = ndp_geodp_nao_hidrologico,
+        AR_misto = ndp_geodp_nao_misto
+    ) |>
+    select(
+        cod_mun,
+        AR_original,
+        AR_duplicadas,
+        AR_unicas,
+        AR_geodp,
+        AR_geo,
+        AR_hidro,
+        AR_misto
+    )
 
-# # carrega a tabela dos municipios do IBGE com geocodigo e nome
-# municipios <- st_read(Mun_file, query = paste("SELECT ", cod_mun, ", ", nom_mun, " FROM ", mun_layer, sep = "")) |>
-#     rename(cod_mun = !!cod_mun, nom_mun = !!nom_mun)
+# carrega a tabela dos municipios do IBGE com geocodigo e nome
+municipios <- st_read(Mun_file, query = paste("SELECT ", cod_mun, ", ", nom_mun, " FROM ", mun_layer, sep = "")) |>
+    rename(cod_mun = !!cod_mun, nom_mun = !!nom_mun)
 
-# # cria a tabela de avaliacao com o nome dos municipios na base do IBGE e o total de AR original e duplicada
-# avaliacao <- avaliacao |>
-#     left_join(
-#         municipios,
-#         join_by(cod_mun)
-#     ) |>
-#     select(
-#         cod_mun,
-#         nom_mun,
-#         AR_original,
-#         AR_unicas,
-#         AR_duplicadas,
-#         AR_geodp,
-#         AR_geo,
-#         AR_hidro,
-#         AR_misto
-#     )
+# cria a tabela de avaliacao com o nome dos municipios na base do IBGE
+# e os agregados da camada de AR original e da camada sem duplicadas
+avaliacao <- avaliacao |>
+    left_join(
+        municipios,
+        join_by(cod_mun)
+    ) |>
+    select(
+        cod_mun,
+        nom_mun,
+        AR_original,
+        AR_unicas,
+        AR_duplicadas,
+        AR_geodp,
+        AR_geo,
+        AR_hidro,
+        AR_misto
+    )
 
 
 # ###################################################
@@ -403,57 +412,57 @@ AR_nodup <- AR_nodup |>
 # ###################################################
 
 
-# # associa espacialmente as AR aos municipios
-# AR_final_mun <- st_join(AR_nodup, municipios, join = st_intersects, largest = TRUE)
+# associa espacialmente as AR aos municipios
+AR_final_mun <- st_join(AR_nodup, municipios, join = st_intersects, largest = TRUE)
 
-# # separa as AR cujo registro do municipio difere da sua localizacao espacial
-# AR_mun_dif <- AR_final_mun |>
-#     rename(cod_orig = !!cod_AR, mun_orig = !!mun_AR, cod_geop = cod_mun, mun_geop = nom_mun) |>
-#     mutate(cod_orig = as.character(cod_orig)) |>
-#     filter(cod_orig != cod_geop)
+# separa as AR cujo registro do municipio difere da sua localizacao espacial
+AR_mun_dif <- AR_final_mun |>
+    rename(cod_orig = !!cod_AR, mun_orig = !!mun_AR, cod_geop = cod_mun, mun_geop = nom_mun) |>
+    mutate(cod_orig = as.character(cod_orig)) |>
+    filter(cod_orig != cod_geop)
 
-# # compila a tabela de municipios com total por municipio de registro / localizacao
-# Mun_dif <- AR_mun_dif |>
-#     select(cod_orig, mun_orig, cod_geop, mun_geop) |>
-#     group_by(cod_orig, cod_geop, mun_geop) |>
-#     summarise(mun_orig = first(mun_orig), n_ar = n()) |>
-#     select(cod_orig, mun_orig, cod_geop, mun_geop, n_ar)
+# compila a tabela de municipios com total por municipio de registro / localizacao
+Mun_dif <- AR_mun_dif |>
+    select(cod_orig, mun_orig, cod_geop, mun_geop) |>
+    group_by(cod_orig, cod_geop, mun_geop) |>
+    summarise(mun_orig = first(mun_orig), n_ar = n()) |>
+    select(cod_orig, mun_orig, cod_geop, mun_geop, n_ar)
 
-# # remove a geometria da tabela de municipios
-# st_geometry(Mun_dif) <- NULL
-
-
-# ############################################
-# ## Exporta as tabelas e as areas de risco ##
-# ############################################
+# remove a geometria da tabela de municipios
+st_geometry(Mun_dif) <- NULL
 
 
-# # ## exporta a camada de AR com registro do municipio diferente para analise
-# st_write(
-#     AR_mun_dif,
-#     paste(saida, "/AR_aval_mun.shp", sep = ""),
-#     driver = "Parquet",
-#     append = FALSE
-# )
+############################################
+## Exporta as tabelas e as areas de risco ##
+############################################
 
-# ## exportar a camada de AR limpas para producao
-# st_write(
-#     AR_nodup,
-#     paste(saida, "/AR_Lote5_semDup.parquet", sep = ""),
-#     driver = "Parquet",
-#     append = FALSE
-# )
 
-# ## exporta tabela com numero de ARs com registro do municipio diferente da localizacao
-# st_write(
-#     Mun_dif,
-#     paste(saida, "/Mun_dif.ods", sep = ""),
-#     append = FALSE
-# )
+# ## exporta a camada de AR com registro do municipio diferente para analise
+st_write(
+    AR_mun_dif,
+    paste(saida, "/", lote_layer, "_erro_mun", sep = ""),
+    driver = "Parquet",
+    append = FALSE
+)
 
-# ## exporta tabela com numero de ARs duplicadas por municipio
-# st_write(
-#     avaliacao,
-#     paste(saida, "/avaliacao_dp.ods", sep = ""),
-#     append = FALSE
-# )
+## exportar a camada de AR limpas para producao
+st_write(
+    AR_nodup,
+    paste(saida, "/", lote_layer, "_proc.parquet", sep = ""),
+    driver = "Parquet",
+    append = FALSE
+)
+
+## exporta tabela com numero de ARs com registro do municipio diferente da localizacao
+st_write(
+    Mun_dif,
+    paste(saida, "/", lote_layer, "_erro_mun.ods", sep = ""),
+    append = FALSE
+)
+
+## exporta tabela com numero de ARs duplicadas por municipio
+st_write(
+    avaliacao,
+    paste(saida, "/", lote_layer, "_duplicadas.ods", sep = ""),
+    append = FALSE
+)
