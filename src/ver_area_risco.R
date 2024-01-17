@@ -264,6 +264,8 @@ sep_char <- c(
 sep_pat <- paste0(paste(sep_char, collapse = "|"))
 
 # cria tabela com as combinacoes unicas dos campos de tipologia
+# isso aqui pode jogar pro bloco de selecao de arquivos e colunas
+# e puxar as combinacoes das tipologias com o SELECT DISTINCT do SQL
 tipologias <- AR_nodup |>
     select(c(!!col_AR_cprm, !!col_AR_outro)) |>
     as.data.frame() |>
