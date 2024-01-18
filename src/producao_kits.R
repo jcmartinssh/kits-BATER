@@ -227,7 +227,6 @@ lista_mun <- read_sf(AR_arq, query = paste("SELECT DISTINCT ", cod_AR, " FROM ",
 
 
 # para testar
-
 lista_mun <- lista_mun[145:146]
 i <- 1
 
@@ -413,6 +412,13 @@ for (i in seq_along(lista_mun)) {
 ###
 ##
 #
+
+
+###############################
+## consolidacao e exportacao ##
+##   da tabela de avaliacao  ##
+###############################
+
 
 # cria filtro sql geocodigo dos municipios
 sql_mun <- paste("'", lista_mun, "'", sep = "", collapse = ", ")

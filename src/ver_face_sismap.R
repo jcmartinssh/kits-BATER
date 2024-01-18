@@ -77,7 +77,7 @@ faces_crs <- st_crs(faces_col)
 faces_col <- faces_col |>
   colnames()
 
-# seleciona coluna com o identificador das faces da camada de faces
+# seleciona coluna com o identificador unico das faces da camada de faces
 faces_id <- select.list(faces_col, title = "Identificador unico das faces:", graphics = TRUE)
 
 # seleciona coluna com o geocodigo das faces da camada de faces
@@ -86,10 +86,10 @@ faces_geocod <- select.list(faces_col, title = "Geocodigo das faces:", graphics 
 # seleciona coluna com o geocodigo dos setores nas camada de faces
 faces_stcod <- select.list(faces_col, title = "codigo dos setores nas faces:", graphics = TRUE)
 
-# seleciona coluna com o geocodigo das faces da camada de faces
+# seleciona coluna com o codigo sequencial das quadras da camada de faces
 faces_qdcod <- select.list(faces_col, title = "codigo seq das quadras:", graphics = TRUE)
 
-# seleciona coluna com o geocodigo das faces da camada de faces
+# seleciona coluna com o codigo sequencial das faces da camada de faces
 faces_fccod <- select.list(faces_col, title = "codigo seq das faces:", graphics = TRUE)
 
 # seleciona todas as colunas menos a geometria para compor string usada na selecao SQL
