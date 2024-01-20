@@ -134,8 +134,8 @@ setores_geocod <- select.list(setores_col, title = "Geocodigo dos setores:", gra
 
 # carrega os arquivos de face de logradouro sem a geometria
 # use a linha com LIMIT para testar
-faces <- read_sf(faces_arq, query = paste("SELECT ", faces_col_sql, " FROM ", faces_layer, " LIMIT 1000000"))
-# faces <- read_sf(faces_arq, query = paste("SELECT ", faces_col_sql, " FROM ", faces_layer))
+# faces <- read_sf(faces_arq, query = paste("SELECT ", faces_col_sql, " FROM ", faces_layer, " LIMIT 1000000"))
+faces <- read_sf(faces_arq, query = paste("SELECT ", faces_col_sql, " FROM ", faces_layer))
 
 # pra garantir que não tem a coluna com geometria
 st_geometry(faces) <- NULL
