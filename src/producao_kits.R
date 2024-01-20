@@ -33,14 +33,17 @@ op1 <- "Produzir os kits e tabela de avaliação das faces"
 # define opcao de produzir tabela de avaliacao sem produzir kits
 op2 <- "Produzir somente a tabela de avaliação das faces"
 
-# seleciona operacao a ser realizada
-proc <- select.list(c(op1, op2), preselect = op2, multiple = FALSE, title = "Seleção de procedimento", graphics = TRUE)
+# # seleciona operacao a ser realizada
+# proc <- select.list(c(op1, op2), preselect = op2, multiple = FALSE, title = "Seleção de procedimento", graphics = TRUE)
 
-if (proc == op1) {
-  prod_kits <- TRUE
-} else {
-  prod_kits <- FALSE
-}
+# if (proc == op1) {
+#   prod_kits <- TRUE
+# } else {
+#   prod_kits <- FALSE
+# }
+
+# pra desativar a opcao de so produzir a tabela
+prod_kits <- TRUE
 
 
 ################################################
@@ -243,15 +246,6 @@ aval_quali <- list()
 ###
 #### loop de criação de kits por município
 for (i in seq_along(lista_mun)) {
-  # carrega o municipio e valida a geometria
-  municipio <- st_read(municipios_arq, query = paste("SELECT * FROM ", municipios_layer, " WHERE ", cod_mun, " = '", lista_mun[i], "'", sep = "")) |>
-    st_make_valid()
-
-  # converte a geometria do municipio para WKT para utilizacao como filtro espacial
-  mun_geom <- municipio |>
-    st_geometry() |>
-    st_as_text()
-
   # carrega as áreas de risco do município pelo geocodigo e valida geometria
   areas_risco <- areas_risco_tot |>
     filter(.data[[cod_AR]] == lista_mun[i]) |>
@@ -260,6 +254,15 @@ for (i in seq_along(lista_mun)) {
   # carrega os setores do município e valida geometria
   setores <- st_read(setores_arq, query = paste("SELECT * FROM ", setor_layer, " WHERE substr(", cod_set, ", 1, 7) = '", lista_mun[i], "'", sep = "")) |>
     st_make_valid()
+
+  # carrega o municipio e valida a geometria
+  municipio <- st_read(municipios_arq, query = paste("SELECT * FROM ", municipios_layer, " WHERE ", cod_mun, " = '", lista_mun[i], "'", sep = "")) |>
+    st_make_valid()
+
+  # converte a geometria do municipio para WKT para utilizacao como filtro espacial
+  mun_geom <- municipio |>
+    st_geometry() |>
+    st_as_text()
 
   # carrega as faces do SISMAP com geometria do município e valida geometria
   faces_geo <- st_read(faces_arq, layer = faces_layer, wkt_filter = mun_geom) |>
