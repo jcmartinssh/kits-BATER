@@ -1,6 +1,14 @@
 ## SCRIPT para producao das pastas contendos os arquivos necessarios para mapeamento da BATER por municipio
 ## deve ser executado apos a correcao da base de areas de risco
 
+# funcao para selecionar diretorio de maneira multiplataforma
+# choose_directory <- function(caption = "Select data directory") {
+#   if (exists("utils::choose.dir")) {
+#     choose.dir(caption = caption)
+#   } else {
+#     tk_choose.dir(caption = caption)
+#   }
+# }
 
 ############################
 ## configuracoes iniciais ##

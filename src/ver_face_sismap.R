@@ -140,6 +140,9 @@ faces <- read_sf(faces_arq, query = paste("SELECT ", faces_col_sql, " FROM ", fa
 # pra garantir que não tem a coluna com geometria
 st_geometry(faces) <- NULL
 
+# limpa a memoria
+gc()
+
 # transforma num data.table
 setDT(faces)
 
