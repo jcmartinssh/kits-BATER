@@ -114,7 +114,13 @@ ver_mun <- st_layers(Mun_file)
 mun_layer <- select.list(ver_mun[[1]], title = "municípios:", graphics = TRUE)
 
 # carrega a estrutura da camada de municipios
-col_mun <- st_read(Mun_file, query = paste("SELECT * from ", mun_layer, " LIMIT 0", sep = "")) |>
+col_mun <- st_read(Mun_file, query = paste("SELECT * from ", mun_layer, " LIMIT 0", sep = ""))
+
+# determina nome da coluna com geometria das ARs
+geom_mun <- attr(col_mun, "sf_column")
+
+# extrai o nome das colunas dos municipios
+col_mun <- col_mun |>
     colnames()
 
 # seleciona a coluna com o geocodigo dos municipios
@@ -346,7 +352,7 @@ avaliacao <- T_AR_nodup |>
     )
 
 # carrega a tabela dos municipios do IBGE com geocodigo e nome
-municipios <- st_read(Mun_file, query = paste("SELECT ", cod_mun, ", ", nom_mun, " FROM ", mun_layer, sep = "")) |>
+municipios <- st_read(Mun_file, query = paste("SELECT ", cod_mun, ", ", nom_mun, ", ", geom_mun, " FROM ", mun_layer, sep = "")) |>
     rename(cod_mun = !!cod_mun, nom_mun = !!nom_mun)
 
 # cria a tabela de avaliacao com o nome dos municipios na base do IBGE
