@@ -1,6 +1,7 @@
 ## SCRIPT para verificacao, correcao e classificacao da base de faces de logradouro do SISMAP
 ## para utilizacao na confeccao da Base Territorial Estatistica de Areas de Risco - BATER
 
+## com alguns problemas ainda, em desenvolvimento
 
 ############################
 ## configuracoes iniciais ##

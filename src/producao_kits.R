@@ -64,8 +64,8 @@ prod_kits <- TRUE
 
 
 # filtro de formatos de arquivos
-filtro <- matrix(c("Geopackage", "*.gpkg", "Parquet", "*.parquet", "Shapefile", "*.shp", "All files", "*"),
-  4, 2,
+filtro <- matrix(c("Geopackage", "*.gpkg", "Shapefile", "*.shp", "All files", "*"),
+  3, 2,
   byrow = TRUE
 )
 
@@ -87,25 +87,14 @@ faces_aval_arq <- choose_file(
   )
 )
 
-# faces_aval_arq <- file.choose()
-
-# cria lista de camadas do arquivo
-faces_geo_aval <- st_layers(faces_aval_arq)
-
-# seleciona a camada de interesse
-faces_aval_layer <- select.list(faces_geo_aval[[1]], title = "faces avaliadas:", graphics = TRUE)
+# carrega o arquivo parquet de avaliacao das faces com geometria como dataset, para lazy evaluation.
+faces_aval_geo <- open_dataset(faces_aval_arq)
 
 # produz lista com nomes das colunas da camada
-col_faces_aval <- read_sf(faces_aval_arq, query = paste("SELECT * from ", faces_aval_layer, " LIMIT 0", sep = "")) |> colnames()
+col_faces_aval <- faces_aval_geo$schema$names
 
 # seleciona o campo com o identificador unico da avaliacao das faces do SISMAP
 id_faces_aval <- select.list(col_faces_aval, title = "identificador único da avaliação das faces do SISMAP:", graphics = TRUE)
-
-# carrega o arquivo parquet de avaliacao das faces com geometria como dataset, para lazy evaluation.
-# o filtro de IDs das faces resulta em um SQL muito grande, ultrapassando o limite do GDAL/OGR2OGR e
-# inviabilizando o uso do pacote sf, sendo necessario usar a interface com Parquet oferecida
-# pelo pacote arrow para a recuperacao das faces SISMAP avaliadas por municipio
-faces_aval_geo <- open_dataset(faces_aval_arq)
 
 
 ####################
@@ -141,6 +130,12 @@ faces_arq <- choose_file(
   multi = FALSE,
   filters = filtro
 )
+
+# # carrega o arquivo parquet de avaliacao das faces com geometria como dataset, para lazy evaluation.
+# faces_sismap <- open_dataset(faces_aval_arq)
+
+# # produz lista com nomes das colunas da camada
+# col_face <- faces_sismap$schema$names
 
 # cria lista de camadas do arquivo
 faces_ver <- st_layers(faces_arq)

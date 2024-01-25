@@ -41,8 +41,8 @@ sf_use_s2(FALSE)
 
 
 # filtro de formatos de arquivos
-filtro <- matrix(c("Geopackage", "*.gpkg", "Parquet", "*.parquet", "Shapefile", "*.shp", "All files", "*"),
-    4, 2,
+filtro <- matrix(c("Geopackage", "*.gpkg", "Shapefile", "*.shp", "All files", "*"),
+    3, 2,
     byrow = TRUE
 )
 
@@ -417,8 +417,7 @@ st_write(
 ## exportar a camada de AR limpas para producao
 st_write(
     AR_nodup,
-    paste(saida, "/", lote_layer, "_proc.parquet", sep = ""),
-    driver = "Parquet",
+    paste(saida, "/", lote_layer, "_proc.gpkg", sep = ""),
     append = FALSE
 )
 
