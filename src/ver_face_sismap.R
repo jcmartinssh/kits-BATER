@@ -1,6 +1,7 @@
 ## SCRIPT para verificacao, correcao e classificacao da base de faces de logradouro do SISMAP
 ## para utilizacao na confeccao da Base Territorial Estatistica de Areas de Risco - BATER
 
+
 ############################
 ## configuracoes iniciais ##
 ############################
@@ -18,6 +19,19 @@ library(parallel) # versao 4.3.2
 # esta sendo necessario devido ao limite de caracteres do filtro SQL do pacote sf
 library(dplyr)
 library(arrow)
+
+# define diretorio de trabalho
+# necessario para carregar as funcoes externas
+# so funciona se estiver rodando o script inteiro
+# em caso de rodar passo a passo, definir manualmente
+setwd(
+  getSrcDirectory(function(x) {
+    x
+  })
+)
+
+# carrega funcoes externas
+source("funcoes_comuns.R")
 
 # desativa geometria esferica
 sf_use_s2(FALSE)
@@ -42,14 +56,14 @@ filtro <- matrix(c("Geopackage", "*.gpkg", "Parquet", "*.parquet", "Shapefile", 
 )
 
 # escolhe diretório de saida
-output <- tcltk::tk_choose.dir(caption = "diretório de saída:")
+output <- choose_directory(caption = "diretório de saída:")
 
 
 #########################
 ## faces de logradouro ##
 
 # seleciona o arquivo com a base de faces com geometria
-faces_arq <- tcltk::tk_choose.files(
+faces_arq <- choose_file(
   caption = "arquivo das faces com geometria:",
   multi = FALSE,
   filters = matrix(c("Parquet", "*.parquet"),
@@ -101,7 +115,7 @@ faces_col_sql <- faces_col[faces_col != faces_geom] |> paste(collapse = ", ")
 
 
 # seleciona o arquivo com a base de setores censitarios
-setores_arq <- tcltk::tk_choose.files(
+setores_arq <- choose_file(
   caption = "arquivo dos setores censitários:",
   multi = FALSE,
   filters = filtro

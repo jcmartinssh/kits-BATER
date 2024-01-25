@@ -1,15 +1,6 @@
 ## SCRIPT para producao das pastas contendos os arquivos necessarios para mapeamento da BATER por municipio
 ## deve ser executado apos a correcao da base de areas de risco
 
-# funcao para selecionar diretorio de maneira multiplataforma
-# choose_directory <- function(caption = "Select data directory") {
-#   if (exists("utils::choose.dir")) {
-#     choose.dir(caption = caption)
-#   } else {
-#     tk_choose.dir(caption = caption)
-#   }
-# }
-
 ############################
 ## configuracoes iniciais ##
 ############################
@@ -23,9 +14,22 @@ library(sf)
 library(stringr)
 library(dplyr)
 library(tidyr)
-library(data.table)
 library(arrow)
 library(rlang)
+library(data.table)
+
+# define diretorio de trabalho
+# necessario para carregar as funcoes externas
+# so funciona se estiver rodando o script inteiro
+# em caso de rodar passo a passo, definir manualmente
+setwd(
+  getSrcDirectory(function(x) {
+    x
+  })
+)
+
+# carrega funcoes externas
+source("funcoes_comuns.R")
 
 # desativa geometria esferica
 sf_use_s2(FALSE)
@@ -35,20 +39,20 @@ cod_erro <- lapply(0:9, rep, 3) |>
   lapply(paste, collapse = "") |>
   unlist()
 
-# define opcao de produzir kits e tabela de avaliacao
-op1 <- "Produzir os kits e tabela de avaliação das faces"
+# # # define opcao de produzir kits e tabela de avaliacao
+# # op1 <- "Produzir os kits e tabela de avaliação das faces"
 
-# define opcao de produzir tabela de avaliacao sem produzir kits
-op2 <- "Produzir somente a tabela de avaliação das faces"
+# # # define opcao de produzir tabela de avaliacao sem produzir kits
+# # op2 <- "Produzir somente a tabela de avaliação das faces"
 
-# # seleciona operacao a ser realizada
-# proc <- select.list(c(op1, op2), preselect = op2, multiple = FALSE, title = "Seleção de procedimento", graphics = TRUE)
+# # # seleciona operacao a ser realizada
+# # proc <- select.list(c(op1, op2), preselect = op2, multiple = FALSE, title = "Seleção de procedimento", graphics = TRUE)
 
-# if (proc == op1) {
-#   prod_kits <- TRUE
-# } else {
-#   prod_kits <- FALSE
-# }
+# # if (proc == op1) {
+# #   prod_kits <- TRUE
+# # } else {
+# #   prod_kits <- FALSE
+# # }
 
 # pra desativar a opcao de so produzir a tabela
 prod_kits <- TRUE
@@ -66,7 +70,7 @@ filtro <- matrix(c("Geopackage", "*.gpkg", "Parquet", "*.parquet", "Shapefile", 
 )
 
 # seleciona o diretrório de saída
-output <- tcltk::tk_choose.dir(caption = "selecionar diretório de saída:")
+output <- choose_directory(caption = "selecionar diretório de saída:")
 
 
 ################################
@@ -74,7 +78,7 @@ output <- tcltk::tk_choose.dir(caption = "selecionar diretório de saída:")
 
 
 # seleciona a tabela de avaliacao da base de faces do SISMAP em formato Parquet
-faces_aval_arq <- tcltk::tk_choose.files(
+faces_aval_arq <- choose_file(
   caption = "selecionar tabela de avaliacao das faces do SISMAP em formato Parquet:",
   multi = FALSE,
   filters = matrix(c("Parquet", "*.parquet"),
@@ -82,6 +86,8 @@ faces_aval_arq <- tcltk::tk_choose.files(
     byrow = TRUE
   )
 )
+
+# faces_aval_arq <- file.choose()
 
 # cria lista de camadas do arquivo
 faces_geo_aval <- st_layers(faces_aval_arq)
@@ -107,7 +113,7 @@ faces_aval_geo <- open_dataset(faces_aval_arq)
 
 
 # seleciona o arquivo com a base áreas de risco
-AR_arq <- tcltk::tk_choose.files(
+AR_arq <- choose_file(
   caption = "selecionar arquivo de áreas de risco:", multi = FALSE,
   filters = filtro
 )
@@ -130,7 +136,7 @@ cod_AR <- select.list(col_AR, title = "geocódigo municipal da área de risco:",
 
 
 # seleciona o arquivo com a base de faces com geometria do SISMAP
-faces_arq <- tcltk::tk_choose.files(
+faces_arq <- choose_file(
   caption = "selecionar arquivo de base de faces do SISMAP:",
   multi = FALSE,
   filters = filtro
@@ -157,7 +163,7 @@ id_face <- select.list(col_face, title = "identificador único das faces do SISM
 
 
 # seleciona o arquivo de faces do CNEFE com variaveis de mapeamento
-tabfaces_arq <- tcltk::tk_choose.files(
+tabfaces_arq <- choose_file(
   caption = "selecionar arquivo de faces do CNEFE com variáveis de mapeamento:", multi = FALSE,
   filters = filtro
 )
@@ -180,7 +186,7 @@ cod_tabface <- select.list(col_tabface, title = "geocódigo das faces do CNEFE",
 
 
 # seleciona o arquivo com a base de setores censitários
-setores_arq <- tcltk::tk_choose.files(
+setores_arq <- choose_file(
   caption = "selecionar arquivo de setores:", multi = FALSE,
   filters = filtro
 )
@@ -203,7 +209,7 @@ cod_set <- select.list(col_set, title = "geocódigo dos setores:", graphics = TR
 
 
 # seleciona o arquivo da base de municipios
-municipios_arq <- tcltk::tk_choose.files(
+municipios_arq <- choose_file(
   caption = "selecionar arquivo de base de municípios:",
   multi = FALSE,
   filters = filtro

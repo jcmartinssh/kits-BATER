@@ -1,5 +1,14 @@
-## SCRIPT para verificacao e removecao de feicoes de areas de risco duplicadas,
+## SCRIPT para verificacao e remocao de feicoes de areas de risco duplicadas,
 ## normalizacao da classificacao e verificacao de erros no registro municipal
+
+# funcao para selecionar diretorio de maneira multiplataforma
+# choose_directory <- function(caption = "Select data directory") {
+#   if (exists("utils::choose.dir")) {
+#     choose.dir(caption = caption)
+#   } else {
+#     tk_choose.dir(caption = caption)
+#   }
+# }
 
 ############################
 ## configuracoes iniciais ##
@@ -17,57 +26,18 @@ library(stringr)
 library(purrr)
 library(ggplot2)
 
-# funcao para remover acentuacao e compatibilizar com ASCII usando base R
-rm_accent <- function(str, pattern = "all") {
-    # Rotinas e funções úteis V 1.0
-    # rm.accent - REMOVE ACENTOS DE PALAVRAS
-    # Função que tira todos os acentos e pontuações de um vetor de strings.
-    # Parâmetros:
-    # str - vetor de strings que terão seus acentos retirados.
-    # patterns - vetor de strings com um ou mais elementos indicando quais acentos deverão ser retirados.
-    #            Para indicar quais acentos deverão ser retirados, um vetor com os símbolos deverão ser passados.
-    #            Exemplo: pattern = c("´", "^") retirará os acentos agudos e circunflexos apenas.
-    #            Outras palavras aceitas: "all" (retira todos os acentos, que são "´", "`", "^", "~", "¨", "ç")
-    if (!is.character(str)) {
-        str <- as.character(str)
-    }
+# define diretorio de trabalho
+# necessario para carregar as funcoes externas
+# so funciona se estiver rodando o script inteiro
+# em caso de rodar passo a passo, definir manualmente
+setwd(
+    getSrcDirectory(function(x) {
+        x
+    })
+)
 
-    pattern <- unique(pattern)
-
-    if (any(pattern == "Ç")) {
-        pattern[pattern == "Ç"] <- "ç"
-    }
-
-    symbols <- c(
-        acute = "áéíóúÁÉÍÓÚýÝ",
-        grave = "àèìòùÀÈÌÒÙ",
-        circunflex = "âêîôûÂÊÎÔÛ",
-        tilde = "ãõÃÕñÑ",
-        umlaut = "äëïöüÄËÏÖÜÿ",
-        cedil = "çÇ"
-    )
-
-    nudeSymbols <- c(
-        acute = "aeiouAEIOUyY",
-        grave = "aeiouAEIOU",
-        circunflex = "aeiouAEIOU",
-        tilde = "aoAOnN",
-        umlaut = "aeiouAEIOUy",
-        cedil = "cC"
-    )
-
-    accentTypes <- c("´", "`", "^", "~", "¨", "ç")
-
-    if (any(c("all", "al", "a", "todos", "t", "to", "tod", "todo") %in% pattern)) { # opcao retirar todos
-        return(chartr(paste(symbols, collapse = ""), paste(nudeSymbols, collapse = ""), str))
-    }
-
-    for (i in which(accentTypes %in% pattern)) {
-        str <- chartr(symbols[i], nudeSymbols[i], str)
-    }
-
-    return(str)
-}
+# carrega funcoes externas
+source("funcoes_comuns.R")
 
 # desativa geometria esferica
 sf_use_s2(FALSE)
@@ -85,7 +55,7 @@ filtro <- matrix(c("Geopackage", "*.gpkg", "Parquet", "*.parquet", "Shapefile", 
 )
 
 # seleciona o diretorio de saida
-saida <- tcltk::tk_choose.dir(caption = "diretório de saída:")
+saida <- choose_directory(caption = "diretório de saída:")
 
 
 ####################
@@ -93,7 +63,7 @@ saida <- tcltk::tk_choose.dir(caption = "diretório de saída:")
 
 
 # seleciona o arquivo com a base de areas de risco
-AR_file <- tcltk::tk_choose.files(
+AR_file <- choose_file(
     caption = "selecionar arquivo de áreas de risco:",
     multi = FALSE,
     filters = filtro
@@ -139,7 +109,7 @@ cl_AR_tipos <- append(col_AR_cprm, col_AR_outro)
 
 
 # seleciona o arquivo com a base de municipios
-Mun_file <- tcltk::tk_choose.files(
+Mun_file <- choose_file(
     caption = "selecionar arquivo de municípios:",
     multi = FALSE,
     filters = filtro
