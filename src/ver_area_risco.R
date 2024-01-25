@@ -1,14 +1,6 @@
 ## SCRIPT para verificacao e remocao de feicoes de areas de risco duplicadas,
 ## normalizacao da classificacao e verificacao de erros no registro municipal
 
-# funcao para selecionar diretorio de maneira multiplataforma
-# choose_directory <- function(caption = "Select data directory") {
-#   if (exists("utils::choose.dir")) {
-#     choose.dir(caption = caption)
-#   } else {
-#     tk_choose.dir(caption = caption)
-#   }
-# }
 
 ############################
 ## configuracoes iniciais ##
@@ -85,8 +77,8 @@ geom_AR <- attr(col_AR, "sf_column")
 col_AR <- col_AR |>
     colnames()
 
-# seleciona identificador unico das areas de risco
-fid_AR <- select.list(col_AR, title = "id unico:", graphics = TRUE)
+# seleciona campos com identificador unico das areas de risco
+fid_AR <- select.list(col_AR, title = "id unico:", multiple = TRUE, graphics = TRUE)
 
 # seleciona a coluna com o geocodigo do municipio na area de risco
 cod_AR <- select.list(col_AR, title = "código municipal das áreas de risco:", graphics = TRUE)
