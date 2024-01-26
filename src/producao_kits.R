@@ -32,7 +32,7 @@ setwd(
 source("funcoes_comuns.R")
 
 # desativa geometria esferica
-sf_use_s2(FALSE)
+sf_use_s2(TRUE)
 
 # produz padrao de erro no geocodigo das faces
 cod_erro <- lapply(0:9, rep, 3) |>
