@@ -175,6 +175,12 @@ col_tabface <- read_sf(tabfaces_arq, query = paste("SELECT * from ", tabfaces_la
 # seleciona o campo com o geocodigo das faces do CNEFE
 cod_tabface <- select.list(col_tabface, title = "geocódigo das faces do CNEFE", graphics = TRUE)
 
+# seleciona o campo com primeira variavel de mapeamento das faces do CNEFE (V001)
+p_var_tabface <- select.list(col_tabface, title = "primeira variável de mapeamento", graphics = TRUE)
+
+# seleciona o campo com a ultima variavel de mapeamento das faces do CNEFE (V024)
+u_var_tabface <- select.list(col_tabface, title = "última variável de mapeamento", graphics = TRUE)
+
 
 #########################
 ## setores censitarios ##
@@ -300,17 +306,14 @@ for (i in seq_along(lista_mun)) {
   tabela_faces <- st_read(tabfaces_arq, query = paste("SELECT * FROM ", tabfaces_layer, " WHERE substr(", cod_tabface, ", 1, 7) = '", lista_mun[i], "'", sep = "")) |> setDT()
 
   # pega o nome das colunas com variavies das faces CNEFE
-  # essa etapa e fragil, o ideal e remover isso e renomear as colunas
   # no arquivo do CNEFE
-  olcol <- colnames(tabela_faces)[9:32]
+  olcol <- colnames(tabela_faces |> select({{ p_var_tabface }}:{{ u_var_tabface }}))
 
   # cria os codigos das variaveis da publicacao proceduralmente
-  # essa etapa e fragil, o ideal e remover isso e renomear as colunas
   # no arquivo do CNEFE
-  neocol <- paste("V", str_pad(1:24, 3, pad = "0"), sep = "")
+  neocol <- paste("V", str_pad(seq_along(olcol), 3, pad = "0"), sep = "")
 
   # substitui o nome das colunas pelos da publicacao
-  # essa etapa e fragil, o ideal e remover isso e renomear as colunas
   # no arquivo do CNEFE
   setnames(tabela_faces, olcol, neocol)
 
