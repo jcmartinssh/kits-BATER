@@ -56,7 +56,7 @@ saida <- choose_directory(caption = "diretório de saída:")
 
 # seleciona o arquivo com a base de areas de risco
 AR_file <- choose_file(
-    caption = "selecionar arquivo de áreas de risco:",
+    caption = "arquivo de áreas de risco:",
     multi = FALSE,
     filters = filtro
 )
@@ -65,7 +65,7 @@ AR_file <- choose_file(
 lotes <- st_layers(AR_file)
 
 # seleciona a camada de areas de risco
-lote_layer <- select.list(lotes[[1]], title = "áreas de risco:", graphics = TRUE)
+lote_layer <- select.list(lotes[[1]], title = "base de áreas de risco:", graphics = TRUE)
 
 # carrega a estrutura da camada de areas de risco
 col_AR <- st_read(AR_file, query = paste("SELECT * from ", lote_layer, " LIMIT 0", sep = ""))
@@ -78,19 +78,19 @@ col_AR <- col_AR |>
     colnames()
 
 # seleciona campos com identificador unico das areas de risco
-fid_AR <- select.list(col_AR, title = "id unico:", multiple = TRUE, graphics = TRUE)
+fid_AR <- select.list(col_AR, title = "AR - campos de IDs:", multiple = TRUE, graphics = TRUE)
 
 # seleciona a coluna com o geocodigo do municipio na area de risco
-cod_AR <- select.list(col_AR, title = "código municipal das áreas de risco:", graphics = TRUE)
+cod_AR <- select.list(col_AR, title = "AR - geocódigo município:", graphics = TRUE)
 
 # seleciona a coluna com o nome do municipio na area de risco
-mun_AR <- select.list(col_AR, title = "nome municipal das áreas de risco:", graphics = TRUE)
+mun_AR <- select.list(col_AR, title = "AR - nome município:", graphics = TRUE)
 
 # seleciona as colunas principais de tipologia de risco do CPRM
-col_AR_cprm <- select.list(col_AR, multiple = TRUE, title = "colunas de tipoologia da CPRM:", graphics = TRUE)
+col_AR_cprm <- select.list(col_AR, multiple = TRUE, title = "AR - tipologia CPRM:", graphics = TRUE)
 
 # seleciona colunas de tipologia de risco de outras fontes
-col_AR_outro <- select.list(col_AR, multiple = TRUE, title = "colunas de tipoologia de outras fontes:", graphics = TRUE)
+col_AR_outro <- select.list(col_AR, multiple = TRUE, title = "AR - outras tipologias:", graphics = TRUE)
 
 # cria a lista de colunas com tipologias de risco
 cl_AR_tipos <- append(col_AR_cprm, col_AR_outro)
@@ -102,7 +102,7 @@ cl_AR_tipos <- append(col_AR_cprm, col_AR_outro)
 
 # seleciona o arquivo com a base de municipios
 Mun_file <- choose_file(
-    caption = "selecionar arquivo de municípios:",
+    caption = "arquivo de municípios:",
     multi = FALSE,
     filters = filtro
 )
@@ -111,7 +111,7 @@ Mun_file <- choose_file(
 ver_mun <- st_layers(Mun_file)
 
 # seleciona a camada de municipios
-mun_layer <- select.list(ver_mun[[1]], title = "municípios:", graphics = TRUE)
+mun_layer <- select.list(ver_mun[[1]], title = "base de municípios:", graphics = TRUE)
 
 # carrega a estrutura da camada de municipios
 col_mun <- st_read(Mun_file, query = paste("SELECT * from ", mun_layer, " LIMIT 0", sep = ""))
@@ -124,10 +124,10 @@ col_mun <- col_mun |>
     colnames()
 
 # seleciona a coluna com o geocodigo dos municipios
-cod_mun <- select.list(col_mun, title = "geocódigo dos municipio:", graphics = TRUE)
+cod_mun <- select.list(col_mun, title = "municípios - geocódigo:", graphics = TRUE)
 
 # seleciona a coluna com o nome dos municipios
-nom_mun <- select.list(col_mun, title = "nomes dos municípios:", graphics = TRUE)
+nom_mun <- select.list(col_mun, title = "municípios - nome:", graphics = TRUE)
 
 
 ############################################
@@ -260,10 +260,10 @@ tipos <- unlist(lista_tipos, use.names = FALSE) |>
     str_subset(".+")
 
 # seleciona palavras-chave exclusivas de risco geologico
-tipos_geo <- select.list(tipos, multiple = TRUE, title = "selecionar palavras exclusivamente \nassociadas a risco geológico", graphics = TRUE)
+tipos_geo <- select.list(tipos, multiple = TRUE, title = "GEOLÓGICO:", graphics = TRUE)
 
 # seleciona palavras-chave exclusivas de risco hidrologico
-tipos_hidro <- select.list(tipos, multiple = TRUE, title = "selecionar palavras exclusivamente \nassociadas a risco hidrológico", graphics = TRUE)
+tipos_hidro <- select.list(tipos, multiple = TRUE, title = "HIDROLÓGICO:", graphics = TRUE)
 
 # transforma as palavras-chave de risco geologico em padrao regex
 pat_geo <- paste("(", paste(tipos_geo, collapse = ")|("), ")", sep = "")
@@ -409,8 +409,7 @@ st_geometry(Mun_dif) <- NULL
 # ## exporta a camada de AR com registro do municipio diferente para analise
 st_write(
     AR_mun_dif,
-    paste(saida, "/", lote_layer, "_erro_mun", sep = ""),
-    driver = "Parquet",
+    paste(saida, "/", lote_layer, "_erro_mun.gpkg", sep = ""),
     append = FALSE
 )
 

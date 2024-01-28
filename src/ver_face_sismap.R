@@ -65,7 +65,7 @@ output <- choose_directory(caption = "diretório de saída:")
 
 # seleciona o arquivo com a base de faces com geometria
 faces_arq <- choose_file(
-  caption = "arquivo das faces com geometria:",
+  caption = "arquivo das faces SISMAP:",
   multi = FALSE,
   filters = matrix(c("Parquet", "*.parquet"),
     1, 2,
@@ -77,7 +77,7 @@ faces_arq <- choose_file(
 faces_ver <- st_layers(faces_arq)
 
 # seleciona a camada de faces
-faces_layer <- select.list(faces_ver[[1]], title = "base de faces:", graphics = TRUE)
+faces_layer <- select.list(faces_ver[[1]], title = "base de faces SISMAP:", graphics = TRUE)
 
 # carrega estrutura da camada de faces - sem feicoes
 faces_col <- read_sf(faces_arq, query = paste("SELECT * FROM ", faces_layer, " LIMIT 0", sep = ""))
@@ -93,19 +93,19 @@ faces_col <- faces_col |>
   colnames()
 
 # seleciona coluna com o identificador unico das faces da camada de faces
-faces_id <- select.list(faces_col, title = "Identificador unico das faces:", graphics = TRUE)
+faces_id <- select.list(faces_col, title = "faces SISMAP - ID:", graphics = TRUE)
 
 # seleciona coluna com o geocodigo das faces da camada de faces
-faces_geocod <- select.list(faces_col, title = "Geocodigo das faces:", graphics = TRUE)
+faces_geocod <- select.list(faces_col, title = "faces SISMAP - geocódigo:", graphics = TRUE)
 
 # seleciona coluna com o geocodigo dos setores nas camada de faces
-faces_stcod <- select.list(faces_col, title = "codigo dos setores nas faces:", graphics = TRUE)
+faces_stcod <- select.list(faces_col, title = "faces SISMAP - código setor:", graphics = TRUE)
 
 # seleciona coluna com o codigo sequencial das quadras da camada de faces
-faces_qdcod <- select.list(faces_col, title = "codigo seq das quadras:", graphics = TRUE)
+faces_qdcod <- select.list(faces_col, title = "faces SISMAP - código quadras:", graphics = TRUE)
 
 # seleciona coluna com o codigo sequencial das faces da camada de faces
-faces_fccod <- select.list(faces_col, title = "codigo seq das faces:", graphics = TRUE)
+faces_fccod <- select.list(faces_col, title = "faces SISMAP - código faces:", graphics = TRUE)
 
 # seleciona todas as colunas menos a geometria para compor string usada na selecao SQL
 faces_col_sql <- faces_col[faces_col != faces_geom] |> paste(collapse = ", ")
@@ -117,7 +117,7 @@ faces_col_sql <- faces_col[faces_col != faces_geom] |> paste(collapse = ", ")
 
 # seleciona o arquivo com a base de setores censitarios
 setores_arq <- choose_file(
-  caption = "arquivo dos setores censitários:",
+  caption = "arquivo dos setores:",
   multi = FALSE,
   filters = filtro
 )
@@ -139,7 +139,7 @@ setores_col <- setores_col |>
   colnames()
 
 # seleciona coluna com o geocodigo dos setores da camada de setores
-setores_geocod <- select.list(setores_col, title = "Geocodigo dos setores:", graphics = TRUE)
+setores_geocod <- select.list(setores_col, title = "setores - geocódigo:", graphics = TRUE)
 
 
 ###########################################################

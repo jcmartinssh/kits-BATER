@@ -70,7 +70,7 @@ filtro <- matrix(c("Geopackage", "*.gpkg", "Shapefile", "*.shp", "All files", "*
 )
 
 # seleciona o diretrório de saída
-output <- choose_directory(caption = "selecionar diretório de saída:")
+output <- choose_directory(caption = "diretório de saída:")
 
 
 ################################
@@ -79,7 +79,7 @@ output <- choose_directory(caption = "selecionar diretório de saída:")
 
 # seleciona a tabela de avaliacao da base de faces do SISMAP em formato Parquet
 faces_aval_arq <- choose_file(
-  caption = "selecionar tabela de avaliacao das faces do SISMAP em formato Parquet:",
+  caption = "arquivo de avaliação faces:",
   multi = FALSE,
   filters = matrix(c("Parquet", "*.parquet"),
     1, 2,
@@ -94,7 +94,7 @@ faces_aval_geo <- open_dataset(faces_aval_arq)
 col_faces_aval <- faces_aval_geo$schema$names
 
 # seleciona o campo com o identificador unico da avaliacao das faces do SISMAP
-id_faces_aval <- select.list(col_faces_aval, title = "identificador único da avaliação das faces do SISMAP:", graphics = TRUE)
+id_faces_aval <- select.list(col_faces_aval, title = "avaliação faces - ID:", graphics = TRUE)
 
 
 ####################
@@ -103,7 +103,7 @@ id_faces_aval <- select.list(col_faces_aval, title = "identificador único da av
 
 # seleciona o arquivo com a base áreas de risco
 AR_arq <- choose_file(
-  caption = "selecionar arquivo de áreas de risco:", multi = FALSE,
+  caption = "arquivo de áreas de risco:", multi = FALSE,
   filters = filtro
 )
 
@@ -111,13 +111,13 @@ AR_arq <- choose_file(
 lotes <- st_layers(AR_arq)
 
 # seleciona a camada de interesse
-lote_layer <- select.list(lotes[[1]], title = "camada de áreas de risco:", graphics = TRUE)
+lote_layer <- select.list(lotes[[1]], title = "base de áreas de risco:", graphics = TRUE)
 
 # produz lista com nomes das colunas da camada
 col_AR <- read_sf(AR_arq, query = paste("SELECT * from ", lote_layer, " LIMIT 0", sep = "")) |> colnames()
 
 # seleciona o campo com o geocodigo municipal da area de risco
-cod_AR <- select.list(col_AR, title = "geocódigo municipal da área de risco:", graphics = TRUE)
+cod_AR <- select.list(col_AR, title = "AR - geocódigo município:", graphics = TRUE)
 
 
 ################################
@@ -126,7 +126,7 @@ cod_AR <- select.list(col_AR, title = "geocódigo municipal da área de risco:",
 
 # seleciona o arquivo com a base de faces com geometria do SISMAP
 faces_arq <- choose_file(
-  caption = "selecionar arquivo de base de faces do SISMAP:",
+  caption = "arquivo de faces - SISMAP:",
   multi = FALSE,
   filters = filtro
 )
@@ -141,16 +141,16 @@ faces_arq <- choose_file(
 faces_ver <- st_layers(faces_arq)
 
 # seleciona a camada de interesse
-faces_layer <- select.list(faces_ver[[1]], title = "base de faces do SISMAP:", graphics = TRUE)
+faces_layer <- select.list(faces_ver[[1]], title = "base de faces SISMAP:", graphics = TRUE)
 
 # produz lista com nomes das colunas da camada
 col_face <- read_sf(faces_arq, query = paste("SELECT * from ", faces_layer, " LIMIT 0", sep = "")) |> colnames()
 
 # seleciona o campo com o geocodigo das faces do SISMAP
-cod_face <- select.list(col_face, title = "geocódigo das faces do SISMAP:", graphics = TRUE)
+cod_face <- select.list(col_face, title = "faces SISMAP - geocódigo:", graphics = TRUE)
 
 # seleciona o campo com o identificador unico das faces do SISMAP
-id_face <- select.list(col_face, title = "identificador único das faces do SISMAP:", graphics = TRUE)
+id_face <- select.list(col_face, title = "faces SISMAP – ID:", graphics = TRUE)
 
 
 ###################
@@ -159,7 +159,7 @@ id_face <- select.list(col_face, title = "identificador único das faces do SISM
 
 # seleciona o arquivo de faces do CNEFE com variaveis de mapeamento
 tabfaces_arq <- choose_file(
-  caption = "selecionar arquivo de faces do CNEFE com variáveis de mapeamento:", multi = FALSE,
+  caption = "arquivo das faces CNEFE:", multi = FALSE,
   filters = filtro
 )
 
@@ -167,19 +167,19 @@ tabfaces_arq <- choose_file(
 tabfaces_ver <- st_layers(tabfaces_arq)
 
 # seleciona a camada de interesse
-tabfaces_layer <- select.list(tabfaces_ver[[1]], title = "faces CNEFE:", graphics = TRUE)
+tabfaces_layer <- select.list(tabfaces_ver[[1]], title = "base de faces CNEFE:", graphics = TRUE)
 
 # produz lista com nomes das colunas da camada
 col_tabface <- read_sf(tabfaces_arq, query = paste("SELECT * from ", tabfaces_layer, " LIMIT 0", sep = "")) |> colnames()
 
 # seleciona o campo com o geocodigo das faces do CNEFE
-cod_tabface <- select.list(col_tabface, title = "geocódigo das faces do CNEFE", graphics = TRUE)
+cod_tabface <- select.list(col_tabface, title = "faces CNEFE - geocódigo:", graphics = TRUE)
 
 # seleciona o campo com primeira variavel de mapeamento das faces do CNEFE (V001)
-p_var_tabface <- select.list(col_tabface, title = "primeira variável de mapeamento", graphics = TRUE)
+p_var_tabface <- select.list(col_tabface, title = "faces CNEFE - V001:", graphics = TRUE)
 
 # seleciona o campo com a ultima variavel de mapeamento das faces do CNEFE (V024)
-u_var_tabface <- select.list(col_tabface, title = "última variável de mapeamento", graphics = TRUE)
+u_var_tabface <- select.list(col_tabface, title = "faces CNEFE - V024:", graphics = TRUE)
 
 
 #########################
@@ -188,7 +188,7 @@ u_var_tabface <- select.list(col_tabface, title = "última variável de mapeamen
 
 # seleciona o arquivo com a base de setores censitários
 setores_arq <- choose_file(
-  caption = "selecionar arquivo de setores:", multi = FALSE,
+  caption = "arquivo dos setores:", multi = FALSE,
   filters = filtro
 )
 
@@ -202,7 +202,7 @@ setor_layer <- select.list(setores_ver[[1]], title = "base de setores:", graphic
 col_set <- read_sf(setores_arq, query = paste("SELECT * from ", setor_layer, " LIMIT 0", sep = "")) |> colnames()
 
 # seleciona o campo com o geocodigo dos setores censitarios
-cod_set <- select.list(col_set, title = "geocódigo dos setores:", graphics = TRUE)
+cod_set <- select.list(col_set, title = "setores – geocódigo:", graphics = TRUE)
 
 
 ################
@@ -211,7 +211,7 @@ cod_set <- select.list(col_set, title = "geocódigo dos setores:", graphics = TR
 
 # seleciona o arquivo da base de municipios
 municipios_arq <- choose_file(
-  caption = "selecionar arquivo de base de municípios:",
+  caption = "arquivo de municípios:",
   multi = FALSE,
   filters = filtro
 )
@@ -226,10 +226,10 @@ municipios_layer <- select.list(municipios_ver[[1]], title = "base de município
 col_mun <- read_sf(municipios_arq, query = paste("SELECT * from ", municipios_layer, " LIMIT 0", sep = "")) |> colnames()
 
 # seleciona o campo com o geocodigo dos municipios
-cod_mun <- select.list(col_mun, title = "geocódigo dos municípios:", graphics = TRUE)
+cod_mun <- select.list(col_mun, title = "municípios – geocódigo:", graphics = TRUE)
 
 # seleciona o campo com o nome dos municipios
-nom_mun <- select.list(col_mun, title = "nome dos municípios:", graphics = TRUE)
+nom_mun <- select.list(col_mun, title = "municípios – nome:", graphics = TRUE)
 
 
 ###########################
